@@ -3,6 +3,7 @@ package provider
 import (
 	"bytes"
 	"context"
+	"errors"
 	"github.com/bytedance/sonic"
 	v1 "github.com/jiu-u/oai-api/pkg/adapter/api/v1"
 	"io"
@@ -172,6 +173,9 @@ func (p *OpenAIProvider) DoJsonRequest(ctx context.Context, url string, body io.
 	resp, err := client.Do(request)
 	if err != nil {
 		return nil, nil, err
+	}
+	if resp.StatusCode != 200 {
+		return nil, nil, errors.New(resp.Status)
 	}
 	return resp.Body, resp.Header, nil
 }
