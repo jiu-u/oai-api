@@ -1,5 +1,7 @@
 package v1
 
+import "mime/multipart"
+
 type (
 	CreateImageRequest struct {
 		Prompt         string `json:"prompt"`
@@ -24,24 +26,24 @@ type (
 
 type (
 	EditImageRequest struct {
-		Image          []byte `form:"image"`
-		Prompt         string `form:"prompt"`
-		Mask           []byte `form:"mask,omitempty"`
-		Model          string `form:"model,omitempty"`
-		N              int    `form:"n,omitempty"`
-		Size           string `form:"size,omitempty"`
-		ResponseFormat string `form:"response_format,omitempty"`
-		User           string `form:"user,omitempty"`
+		Image          *multipart.FileHeader `form:"image"`
+		Prompt         string                `form:"prompt"`
+		Mask           *multipart.FileHeader `form:"mask,omitempty"`
+		Model          string                `form:"model,omitempty"`
+		N              int                   `form:"n,omitempty"`
+		Size           string                `form:"size,omitempty"`
+		ResponseFormat string                `form:"response_format,omitempty"`
+		User           string                `form:"user,omitempty"`
 	}
 )
 
 type (
 	CreateImageVariationRequest struct {
-		Image          []byte `form:"image"`
-		Model          string `form:"model,omitempty"`
-		N              int    `form:"n,omitempty"`
-		Size           string `form:"size,omitempty"`
-		ResponseFormat string `form:"response_format,omitempty"`
-		User           string `form:"user,omitempty"`
+		Image          *multipart.FileHeader `form:"image"`
+		Model          string                `form:"model,omitempty"`
+		N              int                   `form:"n,omitempty"`
+		Size           string                `form:"size,omitempty"`
+		ResponseFormat string                `form:"response_format,omitempty"`
+		User           string                `form:"user,omitempty"`
 	}
 )

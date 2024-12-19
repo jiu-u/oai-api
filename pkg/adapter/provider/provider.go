@@ -2,12 +2,11 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"github.com/jiu-u/oai-api/pkg/adapter/api/v1"
 	"io"
 	"net/http"
 )
-
-// 根据模型选出一个provider
 
 type Config struct {
 	Type     string
@@ -15,9 +14,6 @@ type Config struct {
 	APIKey   string
 }
 
-type model = string
-type config = string
-type reqMessage = string
 type Provider interface {
 	ChatCompletions(ctx context.Context, req *v1.ChatCompletionRequest) (io.Reader, http.Header, error)
 	ChatCompletionsByBytes(ctx context.Context, req []byte) (io.Reader, http.Header, error)
@@ -29,13 +25,13 @@ type Provider interface {
 	CreateSpeech(ctx context.Context, req *v1.SpeechRequest) (io.Reader, http.Header, error)
 	CreateSpeechByBytes(ctx context.Context, req []byte) (io.Reader, http.Header, error)
 	Transcriptions(ctx context.Context, req *v1.TranscriptionRequest) (io.Reader, http.Header, error)
-	TranscriptionsByBytes(ctx context.Context, req []byte) (io.Reader, http.Header, error)
 	Translations(ctx context.Context, req *v1.TranslationRequest) (io.Reader, http.Header, error)
-	TranslationsByBytes(ctx context.Context, req []byte) (io.Reader, http.Header, error)
 	CreateImage(ctx context.Context, req *v1.CreateImageRequest) (io.Reader, http.Header, error)
 	CreateImageByBytes(ctx context.Context, req []byte) (io.Reader, http.Header, error)
 	CreateImageEdit(ctx context.Context, req *v1.EditImageRequest) (io.Reader, http.Header, error)
-	CreateImageEditByBytes(ctx context.Context, req []byte) (io.Reader, http.Header, error)
 	ImageVariations(ctx context.Context, req *v1.CreateImageVariationRequest) (io.Reader, http.Header, error)
-	ImageVariationsByBytes(ctx context.Context, req []byte) (io.Reader, http.Header, error)
+}
+
+func HandleUnSupportedError() (io.Reader, http.Header, error) {
+	return nil, nil, errors.New("the feature is not supported")
 }

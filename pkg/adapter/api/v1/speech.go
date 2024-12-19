@@ -1,5 +1,7 @@
 package v1
 
+import "mime/multipart"
+
 // post https://api.openai.com/v1/audio/speech
 // 返回文件
 // doc https://platform.openai.com/docs/api-reference/audio/createSpeech
@@ -17,13 +19,13 @@ type SpeechRequest struct {
 // doc https://platform.openai.com/docs/api-reference/audio/createTranscription
 
 type TranscriptionRequest struct {
-	File                   []byte  `form:"file"`
-	Model                  string  `form:"model"`
-	Language               string  `form:"language,omitempty"`
-	Prompt                 string  `form:"prompt,omitempty"`
-	ResponseFormat         string  `form:"response_format,omitempty"`
-	Temperature            float64 `form:"temperature,omitempty"` // 温度
-	TimestampGranularities any     `form:"timestamp_granularity,omitempty"`
+	File                   *multipart.FileHeader `form:"file"`
+	Model                  string                `form:"model"`
+	Language               string                `form:"language,omitempty"`
+	Prompt                 string                `form:"prompt,omitempty"`
+	ResponseFormat         string                `form:"response_format,omitempty"`
+	Temperature            float64               `form:"temperature,omitempty"` // 温度
+	TimestampGranularities any                   `form:"timestamp_granularity,omitempty"`
 }
 
 type TransTextResponse struct {
@@ -62,9 +64,9 @@ type TransSegment struct {
 // doc https://platform.openai.com/docs/api-reference/audio/createTranslation
 
 type TranslationRequest struct {
-	file           []byte  `form:"file"`
-	Model          string  `form:"model"`
-	Prompt         string  `form:"prompt,omitempty"`
-	ResponseFormat string  `form:"response_format,omitempty"`
-	Temperature    float64 `form:"temperature,omitempty"` // 温度
+	File           *multipart.FileHeader `form:"file"`
+	Model          string                `form:"model"`
+	Prompt         string                `form:"prompt,omitempty"`
+	ResponseFormat string                `form:"response_format,omitempty"`
+	Temperature    float64               `form:"temperature,omitempty"` // 温度
 }
