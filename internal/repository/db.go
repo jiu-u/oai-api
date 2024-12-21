@@ -1,7 +1,7 @@
 package repository
 
 import (
-	"github.com/spf13/viper"
+	"github.com/jiu-u/oai-api/pkg/config"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
@@ -9,15 +9,15 @@ import (
 	"time"
 )
 
-func NewDB(conf *viper.Viper) *gorm.DB {
+func NewDB(cfg *config.Config) *gorm.DB {
 	var (
 		db  *gorm.DB
 		err error
 	)
 
 	//logger := zapgorm2.New(l.Logger)
-	driver := conf.GetString("data.db.user.driver")
-	dsn := conf.GetString("data.db.user.dsn")
+	driver := cfg.Database.Driver
+	dsn := cfg.Database.Dsn
 
 	// GORM doc: https://gorm.io/docs/connecting_to_the_database.html
 	switch driver {

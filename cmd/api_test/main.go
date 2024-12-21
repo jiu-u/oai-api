@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/jiu-u/oai-api/internal/middleware"
 	"github.com/jiu-u/oai-api/pkg/adapter/provider"
@@ -9,8 +10,8 @@ import (
 func main() {
 	p, err := NewProvider(provider.Config{
 		Type:     "openai",
-		EndPoint: "https://xx.ai.com",
-		APIKey:   "sk-123121313132131",
+		EndPoint: "https://api.ai.com",
+		APIKey:   "sk-12332131321131321",
 	})
 	if err != nil {
 		panic(err)
@@ -19,6 +20,7 @@ func main() {
 	r := gin.Default()
 	r.Use(middleware.CORSMiddleware())
 	v1 := r.Group("/v1")
+	fmt.Println("------------------------")
 	{
 		v1.POST("/chat/completions", oaiHandler.ChatCompletions)
 		v1.POST("/completions", oaiHandler.Completions)

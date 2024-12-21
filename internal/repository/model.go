@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 	"github.com/jiu-u/oai-api/internal/model"
-	"strings"
 )
 
 type ModelRepo interface {
 	Insert(ctx context.Context, model *model.Model) error
 	FindUsefulModels(ctx context.Context, models []string, statusName string) ([]*ModelSearchResultItem, error)
+	FindCheckModels(ctx context.Context, models []string) ([]*ModelSearchResultItem, error)
 	ExistsHashId(ctx context.Context, modelId string, ProviderId uint64) (bool, error)
 	UpdateOne(ctx context.Context, model *model.Model) error
 	UpdateStatus(ctx context.Context, id uint64, statusName string, status int) error
@@ -22,6 +22,20 @@ func NewModelRepo(repo *Repository) ModelRepo {
 
 type modelRepo struct {
 	*Repository
+}
+
+func (r *modelRepo) FindCheckModels(ctx context.Context, models []string) ([]*ModelSearchResultItem, error) {
+	var result []*ModelSearchResultItem
+	// 查询所有模型并过滤
+	err := r.DB(ctx).Model(&model.Model{}).
+		Where("model_key IN (?)  ", models). // 查找有效的模型
+		Select("id,model_key, provider_id,weight").
+		Find(&result).Error
+	if err != nil {
+		return nil, fmt.Errorf("查询有效模型时出错: %w", err)
+	}
+
+	return result, nil
 }
 
 func (r *modelRepo) GetAllModelIds(ctx context.Context) ([]string, error) {
@@ -39,18 +53,19 @@ func (r *modelRepo) GetAllModelIds(ctx context.Context) ([]string, error) {
 
 type ModelSearchResultItem struct {
 	Id         uint64
-	Model      string
+	Model      string `gorm:"column:model_key"`
 	ProviderId uint64
 	Weight     int
 }
 
 func (r *modelRepo) Insert(ctx context.Context, model *model.Model) error {
 	// 使用 GORM 插入新数据
-	if err := r.DB(ctx).Create(model).Error; err != nil {
+	if err := r.DB(ctx).Create(&model).Error; err != nil {
+		fmt.Println("插入模型时出错", err)
 		// 如果遇到唯一性冲突（ProviderId 和 ModelKey 组合唯一），返回错误
-		if strings.Contains(err.Error(), "unique_index:provider_model_key") {
-			return fmt.Errorf("模型已存在，ProviderId 和 ModelKey 必须唯一")
-		}
+		//if strings.Contains(err.Error(), "unique_index:provider_model_key") {
+		//	return fmt.Errorf("模型已存在，ProviderId 和 ModelKey 必须唯一")
+		//}
 		return fmt.Errorf("插入模型时出错: %w", err)
 	}
 	return nil
@@ -87,7 +102,7 @@ func (r *modelRepo) FindUsefulModels(ctx context.Context, models []string, statu
 	// 查询所有模型并过滤
 	err := r.DB(ctx).Model(&model.Model{}).
 		Where("model_key IN (?) AND "+condition, models, 1). // 查找有效的模型
-		Select("model_key, provider_id").
+		Select("id,model_key, provider_id,weight").
 		Find(&result).Error
 	if err != nil {
 		return nil, fmt.Errorf("查询有效模型时出错: %w", err)

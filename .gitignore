@@ -24,3 +24,6 @@ go.work.sum
 # env file
 .env
 /.idea/
+/storage/
+/config/config.yaml
+config/config.yaml

@@ -1,7 +1,6 @@
 package sid
 
 import (
-	"fmt"
 	"github.com/bwmarrin/snowflake"
 	"strconv"
 	"time"
@@ -13,7 +12,6 @@ type Sid struct {
 
 func NewSid() *Sid {
 	startTime := "2025-01-01"
-	fmt.Println(startTime)
 	machineID := "12"
 	id64, err := strconv.ParseInt(machineID, 10, 64)
 	if err != nil {

@@ -6,19 +6,22 @@ import (
 	"fmt"
 	"github.com/jiu-u/oai-api/internal/model"
 	"github.com/jiu-u/oai-api/internal/repository"
-	"github.com/spf13/viper"
+	"github.com/jiu-u/oai-api/pkg/config"
+	"go.uber.org/zap"
 	"math/rand"
+	"strconv"
 	"sync"
 )
 
 type ProviderConf struct {
-	ProviderName string
-	ProviderType string
-	ProviderId   uint64
-	EndPoint     string
-	APIKey       string
-	ModelUID     uint64
-	ModelId      string
+	ProviderName   string
+	ProviderType   string
+	ProviderId     uint64
+	EndPoint       string
+	APIKey         string
+	ModelUID       uint64
+	ModelId        string
+	ProviderModels []string
 }
 
 type LoadBalanceService interface {
@@ -26,6 +29,7 @@ type LoadBalanceService interface {
 	AddProvider(ctx context.Context, provider *model.Provider) error
 	RemoveProvider(ctx context.Context, id uint64) error
 	ChangeModelMapping(ctx context.Context, modelMapping map[string][]string)
+	GetModelMappingKeys() []string
 }
 
 type loadBalanceService struct {
@@ -41,12 +45,9 @@ func NewLoadBalanceService(
 	s *Service,
 	providerRepo repository.ProviderRepo,
 	modelRepo repository.ModelRepo,
-	conf *viper.Viper,
+	cfg *config.Config,
 ) LoadBalanceService {
-	modelMapping := make(map[string][]string)
-	if err := viper.UnmarshalKey("routes", &modelMapping); err != nil {
-		panic(err)
-	}
+	modelMapping := cfg.ModelMapping
 	list, err := providerRepo.FindAll(context.Background())
 	if err != nil {
 		panic(err)
@@ -72,7 +73,7 @@ func (l *loadBalanceService) NextProvider(ctx context.Context, modelId, statusNa
 	models = append(models, modelId)
 	result, err := l.modelRepo.FindUsefulModels(ctx, models, statusName)
 	if err != nil || len(result) == 0 {
-		fmt.Println("err", err)
+		l.logger.WithContext(ctx).Warn("no available provider", zap.Error(err))
 		return nil, errors.New("no available provider")
 	}
 	// 随机负载均衡
@@ -80,6 +81,9 @@ func (l *loadBalanceService) NextProvider(ctx context.Context, modelId, statusNa
 	totalWeight := 0
 	for _, item := range result {
 		totalWeight += item.Weight
+	}
+	if totalWeight == 0 {
+		return nil, errors.New("no available provider")
 	}
 	idx := 0
 	randomWeight := rand.Intn(totalWeight)
@@ -91,6 +95,9 @@ func (l *loadBalanceService) NextProvider(ctx context.Context, modelId, statusNa
 		}
 	}
 	selected := result[idx]
+
+	str := fmt.Sprintf("请求||请求模型:%s\t\t 实际模型:%s\t\t 服务商名称：%s\t\t ID:%v\t\t Key:%s\n", modelId, selected.Model, l.providerMap[selected.ProviderId].Name, selected.ProviderId, GetKeyId(l.providerMap[selected.ProviderId].APIKey, selected.ProviderId))
+	l.logger.WithContext(ctx).Info(str)
 	return &ProviderConf{
 		ProviderName: l.providerMap[selected.ProviderId].Name,
 		ProviderType: l.providerMap[selected.ProviderId].Type,
@@ -120,4 +127,22 @@ func (l *loadBalanceService) ChangeModelMapping(ctx context.Context, modelMappin
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.modelMapping = modelMapping
+}
+
+func (l *loadBalanceService) GetModelMappingKeys() []string {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	keys := make([]string, 0, len(l.modelMapping))
+	for k := range l.modelMapping {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
+func GetKeyId(key string, id uint64) string {
+	keyId := "不足8位，id->" + strconv.FormatUint(id, 10)
+	if len(key) >= 8 {
+		keyId = key[len(key)-8:]
+	}
+	return keyId
 }

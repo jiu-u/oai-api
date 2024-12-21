@@ -23,7 +23,7 @@ func NewOpenAIProvider(config Config) *OpenAIProvider {
 	}
 }
 
-func (p *OpenAIProvider) ChatCompletions(ctx context.Context, req *v1.ChatCompletionRequest) (io.Reader, http.Header, error) {
+func (p *OpenAIProvider) ChatCompletions(ctx context.Context, req *v1.ChatCompletionRequest) (io.ReadCloser, http.Header, error) {
 	bodyBytes, err := sonic.Marshal(req)
 	if err != nil {
 		return nil, nil, err
@@ -31,7 +31,7 @@ func (p *OpenAIProvider) ChatCompletions(ctx context.Context, req *v1.ChatComple
 	return p.DoChatCompletionsRequest(ctx, bytes.NewBuffer(bodyBytes))
 }
 
-func (p *OpenAIProvider) ChatCompletionsByBytes(ctx context.Context, req []byte) (io.Reader, http.Header, error) {
+func (p *OpenAIProvider) ChatCompletionsByBytes(ctx context.Context, req []byte) (io.ReadCloser, http.Header, error) {
 	return p.DoChatCompletionsRequest(ctx, bytes.NewBuffer(req))
 }
 
@@ -57,7 +57,7 @@ func (p *OpenAIProvider) Models(ctx context.Context) ([]string, error) {
 	return models, nil
 }
 
-func (p *OpenAIProvider) Completions(ctx context.Context, req *v1.CompletionsRequest) (io.Reader, http.Header, error) {
+func (p *OpenAIProvider) Completions(ctx context.Context, req *v1.CompletionsRequest) (io.ReadCloser, http.Header, error) {
 	bodyBytes, err := sonic.Marshal(req)
 	if err != nil {
 		return nil, nil, err
@@ -65,11 +65,11 @@ func (p *OpenAIProvider) Completions(ctx context.Context, req *v1.CompletionsReq
 	return p.DoCompletionsRequest(ctx, bytes.NewBuffer(bodyBytes))
 }
 
-func (p *OpenAIProvider) CompletionsByBytes(ctx context.Context, req []byte) (io.Reader, http.Header, error) {
+func (p *OpenAIProvider) CompletionsByBytes(ctx context.Context, req []byte) (io.ReadCloser, http.Header, error) {
 	return p.DoCompletionsRequest(ctx, bytes.NewBuffer(req))
 }
 
-func (p *OpenAIProvider) Embeddings(ctx context.Context, req *v1.EmbeddingRequest) (io.Reader, http.Header, error) {
+func (p *OpenAIProvider) Embeddings(ctx context.Context, req *v1.EmbeddingRequest) (io.ReadCloser, http.Header, error) {
 	bodyBytes, err := sonic.Marshal(req)
 	if err != nil {
 		return nil, nil, err
@@ -77,11 +77,11 @@ func (p *OpenAIProvider) Embeddings(ctx context.Context, req *v1.EmbeddingReques
 	return p.DoEmbeddingsRequest(ctx, bytes.NewBuffer(bodyBytes))
 }
 
-func (p *OpenAIProvider) EmbeddingsByBytes(ctx context.Context, req []byte) (io.Reader, http.Header, error) {
+func (p *OpenAIProvider) EmbeddingsByBytes(ctx context.Context, req []byte) (io.ReadCloser, http.Header, error) {
 	return p.DoEmbeddingsRequest(ctx, bytes.NewBuffer(req))
 }
 
-func (p *OpenAIProvider) CreateSpeech(ctx context.Context, req *v1.SpeechRequest) (io.Reader, http.Header, error) {
+func (p *OpenAIProvider) CreateSpeech(ctx context.Context, req *v1.SpeechRequest) (io.ReadCloser, http.Header, error) {
 	bodyBytes, err := sonic.Marshal(req)
 	if err != nil {
 		return nil, nil, err
@@ -89,11 +89,11 @@ func (p *OpenAIProvider) CreateSpeech(ctx context.Context, req *v1.SpeechRequest
 	return p.DoTextToSpeechRequest(ctx, bytes.NewBuffer(bodyBytes))
 }
 
-func (p *OpenAIProvider) CreateSpeechByBytes(ctx context.Context, req []byte) (io.Reader, http.Header, error) {
+func (p *OpenAIProvider) CreateSpeechByBytes(ctx context.Context, req []byte) (io.ReadCloser, http.Header, error) {
 	return p.DoTextToSpeechRequest(ctx, bytes.NewBuffer(req))
 }
 
-func (p *OpenAIProvider) Transcriptions(ctx context.Context, req *v1.TranscriptionRequest) (io.Reader, http.Header, error) {
+func (p *OpenAIProvider) Transcriptions(ctx context.Context, req *v1.TranscriptionRequest) (io.ReadCloser, http.Header, error) {
 	url := p.Config.EndPoint + "/v1/audio/transcriptions"
 	// 创建一个字节缓冲区来存储请求体
 	var buf bytes.Buffer
@@ -145,7 +145,7 @@ func (p *OpenAIProvider) Transcriptions(ctx context.Context, req *v1.Transcripti
 	return p.DoFormRequest(ctx, url, &buf, writer.FormDataContentType())
 }
 
-func (p *OpenAIProvider) Translations(ctx context.Context, req *v1.TranslationRequest) (io.Reader, http.Header, error) {
+func (p *OpenAIProvider) Translations(ctx context.Context, req *v1.TranslationRequest) (io.ReadCloser, http.Header, error) {
 	url := p.Config.EndPoint + "/v1/audio/translations"
 	// 创建一个字节缓冲区来存储请求体
 	var buf bytes.Buffer
@@ -197,7 +197,7 @@ func (p *OpenAIProvider) Translations(ctx context.Context, req *v1.TranslationRe
 	return p.DoFormRequest(ctx, url, &buf, writer.FormDataContentType())
 }
 
-func (p *OpenAIProvider) CreateImage(ctx context.Context, req *v1.CreateImageRequest) (io.Reader, http.Header, error) {
+func (p *OpenAIProvider) CreateImage(ctx context.Context, req *v1.CreateImageRequest) (io.ReadCloser, http.Header, error) {
 	url := p.Config.EndPoint + "/v1/images/generations"
 	bodyBytes, err := sonic.Marshal(req)
 	if err != nil {
@@ -206,12 +206,12 @@ func (p *OpenAIProvider) CreateImage(ctx context.Context, req *v1.CreateImageReq
 	return p.DoJsonRequest(ctx, "POST", url, bytes.NewBuffer(bodyBytes))
 }
 
-func (p *OpenAIProvider) CreateImageByBytes(ctx context.Context, req []byte) (io.Reader, http.Header, error) {
+func (p *OpenAIProvider) CreateImageByBytes(ctx context.Context, req []byte) (io.ReadCloser, http.Header, error) {
 	url := p.Config.EndPoint + "/v1/images/generations"
 	return p.DoJsonRequest(ctx, "POST", url, bytes.NewBuffer(req))
 }
 
-func (p *OpenAIProvider) CreateImageEdit(ctx context.Context, req *v1.EditImageRequest) (io.Reader, http.Header, error) {
+func (p *OpenAIProvider) CreateImageEdit(ctx context.Context, req *v1.EditImageRequest) (io.ReadCloser, http.Header, error) {
 	url := p.Config.EndPoint + "/v1/images/edits"
 
 	// 创建一个字节缓冲区来存储请求体
@@ -292,7 +292,7 @@ func (p *OpenAIProvider) CreateImageEdit(ctx context.Context, req *v1.EditImageR
 	return p.DoFormRequest(ctx, url, &buf, writer.FormDataContentType())
 }
 
-func (p *OpenAIProvider) ImageVariations(ctx context.Context, req *v1.CreateImageVariationRequest) (io.Reader, http.Header, error) {
+func (p *OpenAIProvider) ImageVariations(ctx context.Context, req *v1.CreateImageVariationRequest) (io.ReadCloser, http.Header, error) {
 	url := p.Config.EndPoint + "/v1/images/variations"
 	// 创建一个字节缓冲区来存储请求体
 	var buf bytes.Buffer
@@ -355,7 +355,7 @@ func (p *OpenAIProvider) ImageVariations(ctx context.Context, req *v1.CreateImag
 
 // -------------
 
-func (p *OpenAIProvider) DoJsonRequest(ctx context.Context, Method string, url string, body io.Reader) (io.Reader, http.Header, error) {
+func (p *OpenAIProvider) DoJsonRequest(ctx context.Context, Method string, url string, body io.Reader) (io.ReadCloser, http.Header, error) {
 	return p.DoRequest(ctx, url, Method, body, "application/json")
 	//request, err := http.NewRequestWithContext(ctx, "POST", url, body)
 	//if err != nil {
@@ -374,7 +374,7 @@ func (p *OpenAIProvider) DoJsonRequest(ctx context.Context, Method string, url s
 	//return resp.Body, resp.Header, nil
 }
 
-func (p *OpenAIProvider) DoRequest(ctx context.Context, url string, Method string, body io.Reader, contextType string) (io.Reader, http.Header, error) {
+func (p *OpenAIProvider) DoRequest(ctx context.Context, url string, Method string, body io.Reader, contextType string) (io.ReadCloser, http.Header, error) {
 	request, err := http.NewRequestWithContext(ctx, Method, url, body)
 	if err != nil {
 		return nil, nil, err
@@ -392,27 +392,27 @@ func (p *OpenAIProvider) DoRequest(ctx context.Context, url string, Method strin
 	return resp.Body, resp.Header, nil
 }
 
-func (p *OpenAIProvider) DoFormRequest(ctx context.Context, url string, body io.Reader, contentType string) (io.Reader, http.Header, error) {
+func (p *OpenAIProvider) DoFormRequest(ctx context.Context, url string, body io.Reader, contentType string) (io.ReadCloser, http.Header, error) {
 	// 创建 multipart 写入器
 	return p.DoRequest(ctx, url, "POST", body, contentType)
 }
 
-func (p *OpenAIProvider) DoChatCompletionsRequest(ctx context.Context, input io.Reader) (io.Reader, http.Header, error) {
+func (p *OpenAIProvider) DoChatCompletionsRequest(ctx context.Context, input io.Reader) (io.ReadCloser, http.Header, error) {
 	url := p.Config.EndPoint + "/v1/chat/completions"
 	return p.DoJsonRequest(ctx, "POST", url, input)
 }
 
-func (p *OpenAIProvider) DoEmbeddingsRequest(ctx context.Context, input io.Reader) (io.Reader, http.Header, error) {
+func (p *OpenAIProvider) DoEmbeddingsRequest(ctx context.Context, input io.Reader) (io.ReadCloser, http.Header, error) {
 	url := p.Config.EndPoint + "/v1/embeddings"
 	return p.DoJsonRequest(ctx, "POST", url, input)
 }
 
-func (p *OpenAIProvider) DoCompletionsRequest(ctx context.Context, input io.Reader) (io.Reader, http.Header, error) {
+func (p *OpenAIProvider) DoCompletionsRequest(ctx context.Context, input io.Reader) (io.ReadCloser, http.Header, error) {
 	url := p.Config.EndPoint + "/v1/completions"
 	return p.DoJsonRequest(ctx, "POST", url, input)
 }
 
-func (p *OpenAIProvider) DoTextToSpeechRequest(ctx context.Context, input io.Reader) (io.Reader, http.Header, error) {
+func (p *OpenAIProvider) DoTextToSpeechRequest(ctx context.Context, input io.Reader) (io.ReadCloser, http.Header, error) {
 	url := p.Config.EndPoint + "/v1/audio/speech"
 	return p.DoJsonRequest(ctx, "POST", url, input)
 }

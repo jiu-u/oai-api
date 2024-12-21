@@ -1,0 +1,81 @@
+env: local
+app:
+  name: demo
+  version: 0.0.1
+
+http:
+  host: 0.0.0.0
+  port: 8080
+
+security:
+  api_sign:
+    app_key: 123456
+    app_security: 123456
+  jwt:
+    key: QQYnRFerJTSEcrfB89fw8prOaObmrch8
+
+database:
+  driver: mysql
+  dsn: root:12345678@tcp(127.0.0.1:13306)/oai?charset=utf8mb4&parseTime=True&loc=Local
+#  driver: sqlite
+#  dsn: storage/nunu-test.db?_busy_timeout=5000
+#  driver: postgres
+#  dsn: host=localhost user=gorm password=gorm dbname=gorm port=9920 sslmode=disable TimeZone=Asia/Shanghai
+
+
+log:
+  log_level: debug
+  encoding: json           # json or console
+  log_path: "./storage/logs"
+  error_log_name: "error.log"
+  log_file_name: "server.log"
+  max_backups: 30
+  max_age: 7
+  max_size: 1024
+  compress: true
+
+model_mapping:
+  deepseek-chat:
+    - "deepseek-ai/DeepSeek-V2.5"
+  deepseek-coder:
+    - "deepseek-ai/DeepSeek-V2.5"
+  o1-mini:
+    - "@cf/o1-mini-2024-09-12"
+  gpt-4o:
+    - "@cf/gpt-4o-2024-08-06"
+    - "@cf-free/gpt-4o-2024-11-20"
+  claude-3-haiku:
+    - "@cf/claude-3-haiku-20240307"
+    - "@cf/claude-3-5-haiku-20241022"
+  gpt-4o-mini:
+    - "@cf/gpt-4o-mini-2024-07-18"
+# 参与定时检查的模型
+chat_completion_check:
+  - "gpt-4o-mini"
+  - "deepseek-coder"
+
+providers:
+  - name: provider1
+    type: openai
+    end_point: https://xx.api.com
+    weight: 10
+    api_keys:
+      - sk-12313131213132
+    models:
+  - name: "provider1"
+    type: oaiNoFetchModel # 没有自动获取模型的功能
+    end_point: https://api.xx.xyz
+    weight: 10
+    api_keys:
+      - sk-123131231321313213
+    models:
+      - claude-3-5-sonnet
+      - gpt-4o
+      - gemini-1.5-pro
+  - name: "硅基流动"
+    type: siliconflow
+    end_point: https://api.siliconflow.com
+    weight: 10
+    api_keys:
+      - sk-khacvxnebbehbzonagdpqufewuopmckhzrlxbxbqqnoyflcb
+      - sk-exwmvabebjsfltcxzqpgmezxgydnypiausilxtukxaqzxeuk
