@@ -39,6 +39,7 @@ type loadBalanceService struct {
 	providerRepo repository.ProviderRepo
 	modelRepo    repository.ModelRepo
 	modelMapping map[string][]string
+	once         *sync.Once
 }
 
 func NewLoadBalanceService(
@@ -48,7 +49,28 @@ func NewLoadBalanceService(
 	cfg *config.Config,
 ) LoadBalanceService {
 	modelMapping := cfg.ModelMapping
-	list, err := providerRepo.FindAll(context.Background())
+	//list, err := providerRepo.FindAll(context.Background())
+	//if err != nil {
+	//	panic(err)
+	//}
+	//mp := make(map[uint64]*model.Provider)
+	//for _, provider := range list {
+	//	mp[provider.Id] = provider
+	//}
+	return &loadBalanceService{
+		Service:      s,
+		providerRepo: providerRepo,
+		modelRepo:    modelRepo,
+		mu:           &sync.RWMutex{},
+		modelMapping: modelMapping,
+		once:         &sync.Once{},
+	}
+}
+
+func (l *loadBalanceService) loadProviderData() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	list, err := l.providerRepo.FindAll(context.Background())
 	if err != nil {
 		panic(err)
 	}
@@ -56,17 +78,11 @@ func NewLoadBalanceService(
 	for _, provider := range list {
 		mp[provider.Id] = provider
 	}
-	return &loadBalanceService{
-		Service:      s,
-		providerMap:  mp,
-		providerRepo: providerRepo,
-		modelRepo:    modelRepo,
-		mu:           &sync.RWMutex{},
-		modelMapping: modelMapping,
-	}
+	l.providerMap = mp
 }
 
 func (l *loadBalanceService) NextProvider(ctx context.Context, modelId, statusName string) (*ProviderConf, error) {
+	l.once.Do(l.loadProviderData)
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 	models, _ := l.modelMapping[modelId]

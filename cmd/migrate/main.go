@@ -5,13 +5,15 @@ import (
 	"flag"
 	"github.com/jiu-u/oai-api/cmd/migrate/wire"
 	"github.com/jiu-u/oai-api/pkg/config"
+	"github.com/jiu-u/oai-api/pkg/log"
 )
 
 func main() {
-	var envConf = flag.String("conf", "config/config.yaml", "config path, eg: -conf ./config/local.yml")
+	var envConf = flag.String("conf", "config/local.yaml", "config path, eg: -conf ./config/local.yml")
 	flag.Parse()
 	conf := config.LoadConfig(*envConf)
-	app, cleanup, err := wire.NewWire(conf)
+	logger := log.NewLogger(conf)
+	app, cleanup, err := wire.NewWire(conf, logger)
 	defer cleanup()
 	if err != nil {
 		panic(err)

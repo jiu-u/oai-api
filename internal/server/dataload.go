@@ -2,23 +2,26 @@ package server
 
 import (
 	"context"
-	"fmt"
 	apiV1 "github.com/jiu-u/oai-api/api/v1"
 	"github.com/jiu-u/oai-api/internal/service"
 	"github.com/jiu-u/oai-api/pkg/config"
-	"os"
+	"github.com/jiu-u/oai-api/pkg/log"
+	"go.uber.org/zap"
+	"strconv"
 	"strings"
 )
 
 type DataLoadTask struct {
-	Cfg *config.Config
-	svc service.ProviderService
+	Cfg    *config.Config
+	svc    service.ProviderService
+	logger *log.Logger
 }
 
-func NewDataLoad(svc service.ProviderService, cfg *config.Config) *DataLoadTask {
+func NewDataLoad(svc service.ProviderService, cfg *config.Config, logger *log.Logger) *DataLoadTask {
 	return &DataLoadTask{
-		svc: svc,
-		Cfg: cfg,
+		svc:    svc,
+		Cfg:    cfg,
+		logger: logger,
 	}
 }
 
@@ -35,6 +38,7 @@ func (s *DataLoadTask) run(ctx context.Context) error {
 	total := 0
 	succ := 0
 	repeat := 0
+
 	for _, provider := range providers {
 		for _, key := range provider.APIKeys {
 			total++
@@ -53,7 +57,7 @@ func (s *DataLoadTask) run(ctx context.Context) error {
 			modelSet := make(map[string]bool)
 			getModels, err := instance.Models(ctx)
 			if err != nil {
-				fmt.Println("获取模型失败", err)
+				s.logger.Error("获取模型失败", zap.Error(err))
 				continue
 			}
 			for _, model := range getModels {
@@ -83,15 +87,15 @@ func (s *DataLoadTask) run(ctx context.Context) error {
 					succ++
 					continue
 				}
-				fmt.Println("创建provider失败", err)
+				s.logger.Error("创建provider失败", zap.Error(err))
 				continue
 			}
 			succ++
 		}
 	}
-	fmt.Println("总共创建：", total, "个provider")
-	fmt.Println("成功创建：", succ, "个provider")
-	fmt.Println("重复创建：", repeat, "个provider")
-	os.Exit(0)
+	s.logger.Info("总共创建：" + strconv.Itoa(total) + "个provider")
+	s.logger.Info("成功创建：" + strconv.Itoa(succ) + "个provider")
+	s.logger.Info("重复数据：" + strconv.Itoa(repeat) + "个provider")
+	s.logger.Info("数据加载完成")
 	return nil
 }

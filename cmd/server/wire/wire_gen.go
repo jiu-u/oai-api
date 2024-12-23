@@ -4,7 +4,7 @@
 //go:build !wireinject
 // +build !wireinject
 
-package wire_load
+package wire
 
 import (
 	"github.com/google/wire"
@@ -12,14 +12,16 @@ import (
 	"github.com/jiu-u/oai-api/internal/repository"
 	"github.com/jiu-u/oai-api/internal/server"
 	"github.com/jiu-u/oai-api/internal/service"
+	"github.com/jiu-u/oai-api/pkg/app"
 	"github.com/jiu-u/oai-api/pkg/config"
 	"github.com/jiu-u/oai-api/pkg/log"
+	"github.com/jiu-u/oai-api/pkg/server/http"
 	"github.com/jiu-u/oai-api/pkg/sid"
 )
 
 // Injectors from wire.go:
 
-func NewWire(cfg *config.Config, logger *log.Logger) (*server.DataLoadTask, func(), error) {
+func NewWire(cfg *config.Config, logger *log.Logger) (*WireApp, func(), error) {
 	sidSid := sid.NewSid()
 	db := repository.NewDB(cfg)
 	repositoryRepository := repository.NewRepository(logger, db)
@@ -27,9 +29,17 @@ func NewWire(cfg *config.Config, logger *log.Logger) (*server.DataLoadTask, func
 	serviceService := service.NewService(sidSid, transaction, logger)
 	providerRepo := repository.NewProviderRepo(repositoryRepository)
 	modelRepo := repository.NewModelRepo(repositoryRepository)
+	loadBalanceService := service.NewLoadBalanceService(serviceService, providerRepo, modelRepo, cfg)
+	oaiService := service.NewOaiService(serviceService, loadBalanceService, modelRepo)
+	oaiHandler := handler.NewOAIHandler(oaiService)
+	httpServer := server.NewHTTPServer(logger, cfg, oaiHandler)
+	checkModelServer := server.NewCheckModelServer(modelRepo, cfg, providerRepo, logger)
+	app := newApp(httpServer, checkModelServer)
+	migrate := server.NewMigrate(db, logger)
 	providerService := service.NewProviderService(serviceService, providerRepo, modelRepo)
 	dataLoadTask := server.NewDataLoad(providerService, cfg, logger)
-	return dataLoadTask, func() {
+	wireApp := newWireApp(app, migrate, dataLoadTask)
+	return wireApp, func() {
 	}, nil
 }
 
@@ -41,4 +51,27 @@ var serviceSet = wire.NewSet(service.NewService, service.NewOaiService, service.
 
 var handlerSet = wire.NewSet(handler.NewHandler, handler.NewOAIHandler)
 
-var serverSet = wire.NewSet(server.NewDataLoad)
+var serverSet = wire.NewSet(server.NewHTTPServer, server.NewCheckModelServer, server.NewMigrate, server.NewDataLoad)
+
+// build App
+func newApp(
+	httpServer *http.Server,
+	checkServer *server.CheckModelServer,
+
+) *app.App {
+	return app.NewApp(app.WithServer(httpServer, checkServer), app.WithName("demo-server"))
+}
+
+func newWireApp(app2 *app.App, migrateJob *server.Migrate, dataLoadJob *server.DataLoadTask) *WireApp {
+	return &WireApp{
+		App:         app2,
+		MigrateJob:  migrateJob,
+		DataLoadJob: dataLoadJob,
+	}
+}
+
+type WireApp struct {
+	App         *app.App
+	MigrateJob  *server.Migrate
+	DataLoadJob *server.DataLoadTask
+}

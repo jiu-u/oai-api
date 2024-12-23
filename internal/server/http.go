@@ -15,7 +15,7 @@ func NewHTTPServer(
 	cfg *config.Config,
 	oaiHandler *handler.OAIHandler,
 ) *http.Server {
-	gin.SetMode(gin.DebugMode)
+	//gin.SetMode(gin.DebugMode)
 	s := http.NewServer(
 		gin.Default(),
 		logger,

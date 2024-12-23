@@ -29,7 +29,7 @@ func NewWire(cfg *config.Config, logger *log.Logger) (*app.App, func(), error) {
 	providerRepo := repository.NewProviderRepo(repositoryRepository)
 	modelRepo := repository.NewModelRepo(repositoryRepository)
 	providerService := service.NewProviderService(serviceService, providerRepo, modelRepo)
-	dataLoadTask := server.NewDataLoad(providerService, cfg)
+	dataLoadTask := server.NewDataLoad(providerService, cfg, logger)
 	appApp := newApp(dataLoadTask)
 	return appApp, func() {
 	}, nil

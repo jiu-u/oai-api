@@ -1,10 +1,13 @@
 package repository
 
 import (
+	"github.com/glebarez/sqlite"
 	"github.com/jiu-u/oai-api/pkg/config"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
-	"gorm.io/driver/sqlite"
+	"os"
+
+	//"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"time"
 )
@@ -29,6 +32,20 @@ func NewDB(cfg *config.Config) *gorm.DB {
 			PreferSimpleProtocol: true, // disables implicit prepared statement usage
 		}), &gorm.Config{})
 	case "sqlite":
+		_, err := os.Stat("./data/db/oai.db")
+		if err != nil {
+			if os.IsNotExist(err) {
+				err = os.MkdirAll("./data/db", os.ModePerm)
+				if err != nil {
+					panic(err)
+				}
+				f, err := os.Create("./data/db/oai.db")
+				if err != nil {
+					panic(err)
+				}
+				f.Close()
+			}
+		}
 		db, err = gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 	default:
 		panic("unknown db driver")

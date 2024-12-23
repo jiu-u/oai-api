@@ -9,6 +9,7 @@ import (
 	"github.com/jiu-u/oai-api/internal/server"
 	"github.com/jiu-u/oai-api/pkg/app"
 	"github.com/jiu-u/oai-api/pkg/config"
+	"github.com/jiu-u/oai-api/pkg/log"
 )
 
 var repositorySet = wire.NewSet(
@@ -33,7 +34,7 @@ func newApp(
 	)
 }
 
-func NewWire(cfg *config.Config) (*app.App, func(), error) {
+func NewWire(cfg *config.Config, logger *log.Logger) (*app.App, func(), error) {
 	panic(wire.Build(
 		repositorySet,
 		serverSet,

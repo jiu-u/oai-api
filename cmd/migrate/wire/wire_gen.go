@@ -12,13 +12,14 @@ import (
 	"github.com/jiu-u/oai-api/internal/server"
 	"github.com/jiu-u/oai-api/pkg/app"
 	"github.com/jiu-u/oai-api/pkg/config"
+	"github.com/jiu-u/oai-api/pkg/log"
 )
 
 // Injectors from wire.go:
 
-func NewWire(cfg *config.Config) (*app.App, func(), error) {
+func NewWire(cfg *config.Config, logger *log.Logger) (*app.App, func(), error) {
 	db := repository.NewDB(cfg)
-	migrate := server.NewMigrate(db)
+	migrate := server.NewMigrate(db, logger)
 	appApp := newApp(migrate)
 	return appApp, func() {
 	}, nil

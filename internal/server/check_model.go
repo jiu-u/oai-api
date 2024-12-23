@@ -44,7 +44,7 @@ func (c *CheckModelServer) Stop(ctx context.Context) error {
 }
 
 func (c *CheckModelServer) CheckModelChatStatus(ctx context.Context) error {
-	checklist := c.cfg.ChatCOmpletionCheck
+	checklist := c.cfg.ChatCompletionCheck
 	task := make(chan string, 1)
 	go func() {
 		for _ = range task {

@@ -51,7 +51,6 @@ func (s *providerService) CreateProvider(ctx context.Context, req *v1.CreateProv
 		}
 
 		for _, modelId := range req.Models {
-			fmt.Println("modelId--->", modelId)
 			newId := s.sid.GenUint64()
 			newModel := &model.Model{
 				ProviderId: id,

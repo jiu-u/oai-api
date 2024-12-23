@@ -4,19 +4,20 @@ import (
 	"context"
 	"fmt"
 	"github.com/jiu-u/oai-api/internal/model"
+	"github.com/jiu-u/oai-api/pkg/log"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
-	"log"
-	"os"
 )
 
 type Migrate struct {
-	db  *gorm.DB
-	log *log.Logger
+	db     *gorm.DB
+	logger *log.Logger
 }
 
-func NewMigrate(db *gorm.DB) *Migrate {
+func NewMigrate(db *gorm.DB, logger *log.Logger) *Migrate {
 	return &Migrate{
-		db: db,
+		db:     db,
+		logger: logger,
 	}
 }
 func (m *Migrate) Start(ctx context.Context) error {
@@ -24,11 +25,11 @@ func (m *Migrate) Start(ctx context.Context) error {
 		new(model.Model),
 		new(model.Provider),
 	); err != nil {
-		fmt.Println("AutoMigrate error", err)
+		m.logger.Error("AutoMigrate error", zap.Error(err))
 		return err
 	}
-	fmt.Println("AutoMigrate success")
-	os.Exit(0)
+	m.logger.Info("AutoMigrate success")
+	//os.Exit(0)
 	return nil
 }
 func (m *Migrate) Stop(ctx context.Context) error {

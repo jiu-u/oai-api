@@ -27,3 +27,8 @@ go.work.sum
 /storage/
 /config/config.yaml
 config/config.yaml
+/data/bin/
+/data/logs/
+/data/db/
+/data/release/
+data/conf/data.yaml

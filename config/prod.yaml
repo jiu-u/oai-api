@@ -1,0 +1,30 @@
+env: production
+app:
+  name: demo
+  version: 0.0.1
+
+http:
+  host: 0.0.0.0
+  port: 8080
+
+security:
+  api_sign:
+    app_key: 123456
+    app_security: 123456
+  jwt:
+    key: QQYnRFerJTSEcrfB89fw8prOaObmrch8
+
+database:
+  driver: sqlite
+  dsn: data/db/oai.db?_busy_timeout=5000
+
+log:
+  log_level: debug
+  encoding: json           # json or console
+  log_path: "./data/logs"
+  error_log_name: "error.log"
+  log_file_name: "server.log"
+  max_backups: 30
+  max_age: 7
+  max_size: 1024
+  compress: true

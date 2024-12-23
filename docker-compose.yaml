@@ -1,0 +1,33 @@
+services:
+  server:
+    image: jiu/oai-api:v1
+    hostname: server-api
+    container_name: server-api
+    ports:
+      - "18080:8080"
+    environment:
+      - OAI_DATABASE_DRIVER=mysql
+      - OAI_DATABASE_DSN=root:12345678@tcp(oai-mysql:3306)/oai?charset=utf8mb4&parseTime=True&loc=Local
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      oai-mysql:
+        condition: service_healthy
+  oai-mysql:
+    image: mysql
+    hostname: oai-mysql
+    container_name: oai-mysql
+    ports:
+      - "13380:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=12345678
+      - MYSQL_ROOT_HOST=%
+      - MYSQL_DATABASE=oai
+    # volumes:
+    #   - ./data/mysql/user:/var/lib/mysql
+    #   - ./conf/mysql/conf.d:/etc/mysql/conf.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
