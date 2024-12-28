@@ -22,7 +22,7 @@ log:
   log_level: debug
   encoding: json           # json or console
   log_path: "./data/logs"
-  error_log_name: "error.log"
+  error_file_name: "error.log"
   log_file_name: "server.log"
   max_backups: 30
   max_age: 7

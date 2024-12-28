@@ -9,7 +9,7 @@ var (
 	ErrInternalServerError = newError(500, "Internal Server Error")
 
 	// more biz errors
-	UserNameOrPwdError      = newError(1010001, "Username or password error")
+	UserNameOrPwdError      = newError(1010001, "Role or password error")
 	ErrUserNotExist         = newError(1010002, "User does not exist")
 	ErrUserAlreadyExist     = newError(1010003, "User already exists")
 	ErrCaptchaIdNotFound    = newError(1010004, "captcha id not found")

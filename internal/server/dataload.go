@@ -57,7 +57,7 @@ func (s *DataLoadTask) run(ctx context.Context) error {
 			modelSet := make(map[string]bool)
 			getModels, err := instance.Models(ctx)
 			if err != nil {
-				s.logger.Error("获取模型失败", zap.Error(err))
+				s.logger.Error("获取模型失败", zap.Error(err), zap.Any("channel", conf))
 				continue
 			}
 			for _, model := range getModels {

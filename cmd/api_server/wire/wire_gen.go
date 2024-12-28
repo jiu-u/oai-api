@@ -12,8 +12,11 @@ import (
 	"github.com/jiu-u/oai-api/internal/repository"
 	"github.com/jiu-u/oai-api/internal/server"
 	"github.com/jiu-u/oai-api/internal/service"
+	"github.com/jiu-u/oai-api/internal/service/oauth2"
 	"github.com/jiu-u/oai-api/pkg/app"
+	"github.com/jiu-u/oai-api/pkg/cache"
 	"github.com/jiu-u/oai-api/pkg/config"
+	"github.com/jiu-u/oai-api/pkg/jwt"
 	"github.com/jiu-u/oai-api/pkg/log"
 	"github.com/jiu-u/oai-api/pkg/server/http"
 	"github.com/jiu-u/oai-api/pkg/sid"
@@ -22,38 +25,53 @@ import (
 // Injectors from wire.go:
 
 func NewWire(cfg *config.Config, logger *log.Logger) (*app.App, func(), error) {
+	jwtJWT := jwt.NewJwt(cfg)
 	sidSid := sid.NewSid()
 	db := repository.NewDB(cfg)
 	repositoryRepository := repository.NewRepository(logger, db)
 	transaction := repository.NewTransaction(repositoryRepository)
-	serviceService := service.NewService(sidSid, transaction, logger)
+	cacheCache := cache.New()
+	serviceService := service.NewService(sidSid, transaction, logger, jwtJWT, cacheCache)
 	providerRepo := repository.NewProviderRepo(repositoryRepository)
 	modelRepo := repository.NewModelRepo(repositoryRepository)
 	loadBalanceService := service.NewLoadBalanceService(serviceService, providerRepo, modelRepo, cfg)
-	oaiService := service.NewOaiService(serviceService, loadBalanceService, modelRepo)
+	userRepository := repository.NewUserRepository(repositoryRepository)
+	requestLogRepository := repository.NewRequestLogRepository(repositoryRepository)
+	apiKeyRepository := repository.NewApiKeyRepository(repositoryRepository)
+	requestLogService := service.NewRequestLogService(serviceService, userRepository, requestLogRepository, apiKeyRepository)
+	oaiService := service.NewOaiService(serviceService, loadBalanceService, modelRepo, requestLogService)
 	oaiHandler := handler.NewOAIHandler(oaiService)
-	httpServer := server.NewHTTPServer(logger, cfg, oaiHandler)
-	checkModelServer := server.NewCheckModelServer(modelRepo, cfg, providerRepo, logger)
-	appApp := newApp(httpServer, checkModelServer)
+	handlerHandler := handler.NewHandler(logger)
+	linuxDoOauth := oauth2.NewLinuxDoService(cfg)
+	authService := oauth2.NewService(serviceService, userRepository, linuxDoOauth)
+	oAuth2Handler := handler.NewOAuth2Handler(handlerHandler, authService, cfg)
+	serviceAuthService := service.NewAuthService(serviceService, userRepository)
+	authHandler := handler.NewAuthHandler(handlerHandler, jwtJWT, serviceAuthService)
+	apiKeyService := service.NewApiKeyService(serviceService, userRepository, apiKeyRepository)
+	apiKeyHandler := handler.NewApiKeyHandler(handlerHandler, apiKeyService)
+	userService := service.NewUserService(serviceService, userRepository, apiKeyRepository)
+	userHandler := handler.NewUserHandler(handlerHandler, userService)
+	requestLogHandler := handler.NewRequestLogHandler(handlerHandler, requestLogService)
+	httpServer := server.NewHTTPServer(logger, cfg, jwtJWT, oaiHandler, oAuth2Handler, authHandler, apiKeyService, apiKeyHandler, userHandler, requestLogHandler)
+	appApp := newApp(httpServer)
 	return appApp, func() {
 	}, nil
 }
 
 // wire.go:
 
-var repositorySet = wire.NewSet(repository.NewDB, repository.NewRepository, repository.NewTransaction, repository.NewModelRepo, repository.NewProviderRepo)
+var repositorySet = wire.NewSet(repository.NewDB, repository.NewRepository, repository.NewTransaction, repository.NewModelRepo, repository.NewProviderRepo, repository.NewUserRepository, repository.NewApiKeyRepository, repository.NewRequestLogRepository)
 
-var serviceSet = wire.NewSet(service.NewService, service.NewOaiService, service.NewProviderService, service.NewLoadBalanceService)
+var serviceSet = wire.NewSet(service.NewService, service.NewOaiService, service.NewProviderService, service.NewLoadBalanceService, service.NewRequestLogService, service.NewApiKeyService, service.NewUserService, service.NewAuthService, oauth2.NewService, oauth2.NewLinuxDoService)
 
-var handlerSet = wire.NewSet(handler.NewHandler, handler.NewOAIHandler)
+var handlerSet = wire.NewSet(handler.NewHandler, handler.NewOAIHandler, handler.NewOAuth2Handler, handler.NewApiKeyHandler, handler.NewAuthHandler, handler.NewRequestLogHandler, handler.NewUserHandler)
 
-var serverSet = wire.NewSet(server.NewHTTPServer, server.NewCheckModelServer)
+var serverSet = wire.NewSet(server.NewHTTPServer)
 
 // build App
 func newApp(
 	httpServer *http.Server,
-	checkServer *server.CheckModelServer,
 
 ) *app.App {
-	return app.NewApp(app.WithServer(httpServer, checkServer), app.WithName("demo-server"))
+	return app.NewApp(app.WithServer(httpServer), app.WithName("demo-server"))
 }

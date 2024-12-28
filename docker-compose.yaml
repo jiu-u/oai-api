@@ -8,6 +8,8 @@ services:
     environment:
       - OAI_DATABASE_DRIVER=mysql
       - OAI_DATABASE_DSN=root:12345678@tcp(oai-mysql:3306)/oai?charset=utf8mb4&parseTime=True&loc=Local
+      - OAI_OAUTH2_LINUX_DO_CLIENT_ID=TG2vAMuJlt2snm1duFosn2asB1qeqhzB
+      - OAI_OAUTH2_LINUX_DO_CLIENT_SECRET=I4qPQ1TQ3qCcOKwXy1lFcBAXIn2tPzjQ
     volumes:
       - ./data:/app/data
     depends_on:

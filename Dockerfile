@@ -33,6 +33,7 @@ ARG APP_CONF=config/prod.yaml
 ENV OAI_APP_CONF=${APP_CONF}
 
 COPY config ./config
+COPY web ./web
 
 COPY --from=builder /app/server .
 

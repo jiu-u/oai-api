@@ -386,8 +386,14 @@ func (p *OpenAIProvider) DoRequest(ctx context.Context, url string, Method strin
 	if err != nil {
 		return nil, nil, err
 	}
+
 	if resp.StatusCode != 200 {
-		return nil, nil, errors.New(resp.Status)
+		errDetail := ""
+		errBytes, err := io.ReadAll(resp.Body)
+		if err == nil {
+			errDetail = string(errBytes)
+		}
+		return nil, nil, errors.New(resp.Status + ": " + errDetail)
 	}
 	return resp.Body, resp.Header, nil
 }

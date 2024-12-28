@@ -32,3 +32,4 @@ config/config.yaml
 /data/db/
 /data/release/
 data/conf/data.yaml
+data/conf/data_real.yaml

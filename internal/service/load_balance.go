@@ -89,7 +89,7 @@ func (l *loadBalanceService) NextProvider(ctx context.Context, modelId, statusNa
 	models = append(models, modelId)
 	result, err := l.modelRepo.FindUsefulModels(ctx, models, statusName)
 	if err != nil || len(result) == 0 {
-		l.logger.WithContext(ctx).Warn("no available provider", zap.Error(err))
+		l.Logger.WithContext(ctx).Warn("no available provider", zap.Error(err))
 		return nil, errors.New("no available provider")
 	}
 	// 随机负载均衡
@@ -112,8 +112,8 @@ func (l *loadBalanceService) NextProvider(ctx context.Context, modelId, statusNa
 	}
 	selected := result[idx]
 
-	str := fmt.Sprintf("请求||请求模型:%s\t\t 实际模型:%s\t\t 服务商名称：%s\t\t ID:%v\t\t Key:%s\n", modelId, selected.Model, l.providerMap[selected.ProviderId].Name, selected.ProviderId, GetKeyId(l.providerMap[selected.ProviderId].APIKey, selected.ProviderId))
-	l.logger.WithContext(ctx).Info(str)
+	str := fmt.Sprintf("请求||请求模型:%s\t\t 实际模型:%s\t\t 服务商名称：%s\t\t ID:%v\t\t Content:%s\n", modelId, selected.Model, l.providerMap[selected.ProviderId].Name, selected.ProviderId, GetKeyId(l.providerMap[selected.ProviderId].APIKey, selected.ProviderId))
+	l.Logger.WithContext(ctx).Info(str)
 	return &ProviderConf{
 		ProviderName: l.providerMap[selected.ProviderId].Name,
 		ProviderType: l.providerMap[selected.ProviderId].Type,

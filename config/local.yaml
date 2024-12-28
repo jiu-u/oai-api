@@ -14,6 +14,11 @@ security:
   jwt:
     key: QQYnRFerJTSEcrfB89fw8prOaObmrch8
 
+oauth:
+  linux_do:
+    client_id: TG2vAMuJlt2snm1duFosn2asB1qeqhzB
+    client_secret: I4qPQ1TQ3qCcOKwXy1lFcBAXIn2tPzjQ
+
 database:
   driver: mysql
   dsn: root:12345678@tcp(127.0.0.1:13306)/oai?charset=utf8mb4&parseTime=True&loc=Local
@@ -34,7 +39,7 @@ log:
   log_level: debug
   encoding: json           # json or console
   log_path: "./data/logs"
-  error_log_name: "error.log"
+  error_file_name: "error.log"
   log_file_name: "server.log"
   max_backups: 30
   max_age: 7

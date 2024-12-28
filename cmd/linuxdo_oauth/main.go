@@ -34,6 +34,9 @@ func main() {
 	r.GET("/oauth2/initiate", func(c *gin.Context) {
 		base := c.Request.URL
 		fmt.Println("base", c.Request.URL, c.Request.Host, base.Path, base.Host, c.Request.Proto)
+		if c.Request.TLS != nil {
+			fmt.Println("tls", c.Request.TLS)
+		}
 		session := sessions.Default(c)
 		oauthState := generateRandomString(16)
 		fmt.Println("state", oauthState)

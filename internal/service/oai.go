@@ -3,16 +3,18 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 	"github.com/bytedance/sonic"
+	"github.com/gin-gonic/gin"
 	apiV1 "github.com/jiu-u/oai-api/api/v1"
 	"github.com/jiu-u/oai-api/internal/model"
 	"github.com/jiu-u/oai-api/internal/repository"
 	adapterV1 "github.com/jiu-u/oai-api/pkg/adapter/api/v1"
 	"github.com/jiu-u/oai-api/pkg/adapter/provider"
 	"github.com/jiu-u/oai-api/pkg/array"
+	"go.uber.org/zap"
 	"io"
 	"net/http"
+	"strconv"
 )
 
 type OaiService interface {
@@ -55,12 +57,14 @@ func NewOaiService(
 	svc *Service,
 	load LoadBalanceService,
 	modelRepo repository.ModelRepo,
+	reqLogSvc RequestLogService,
 ) OaiService {
 	return &oaiService{
 		Service:   svc,
 		load:      load,
 		modelRepo: modelRepo,
 		N:         2,
+		reqLogSvc: reqLogSvc,
 	}
 }
 
@@ -69,6 +73,40 @@ type oaiService struct {
 	load      LoadBalanceService
 	modelRepo repository.ModelRepo
 	N         int
+	reqLogSvc RequestLogService
+}
+
+func (s *oaiService) GoLogReq(ctx context.Context, modelId string, status int8) {
+	go s.LogReq(ctx, modelId, status)
+}
+
+func (s *oaiService) LogReq(ctx context.Context, modelId string, status int8) {
+	_, ok := ctx.(*gin.Context)
+	if !ok {
+		return
+	}
+	apiKey, err := GetApiKey(ctx.(*gin.Context))
+	if err != nil {
+		return
+	}
+	req := RequestLogReq{
+		Key:    apiKey,
+		Status: status,
+		Model:  modelId,
+		Ip:     ctx.(*gin.Context).ClientIP(),
+	}
+	err = s.reqLogSvc.CreateRequestLog(ctx, &req)
+	if err != nil {
+		s.Logger.Warn("创建请求日志失败", zap.Error(err))
+	}
+}
+
+func GetApiKey(ctx *gin.Context) (string, error) {
+	apiKey, exist := ctx.Get("apiKey")
+	if apiKey == "" || !exist {
+		return "", errors.New("api key is empty")
+	}
+	return apiKey.(string), nil
 }
 
 func (s *oaiService) ChatCompletions(ctx context.Context, req *adapterV1.ChatCompletionRequest) (io.ReadCloser, http.Header, error) {
@@ -76,24 +114,36 @@ func (s *oaiService) ChatCompletions(ctx context.Context, req *adapterV1.ChatCom
 	for _ = range s.N {
 		conf, err := s.load.NextProvider(ctx, reqModelId, model.ChatStatus)
 		if err != nil {
-			fmt.Println("获取provider失败", err)
+			s.Logger.Warn("获取provider失败", zap.String("modelId", reqModelId), zap.Error(err))
 			continue
 		}
 		newProvider, err := NewProvider(conf)
 		if err != nil {
-			fmt.Println("创建provider失败", err)
+			s.Logger.Warn("创建provider失败", zap.String("modelId", reqModelId), zap.Error(err))
 			continue
 		}
 		req.Model = conf.ModelId
 		resp, respHeader, err := newProvider.ChatCompletions(ctx, req)
 		if err == nil {
+			s.GoLogReq(ctx, conf.ModelId, 1)
 			return resp, respHeader, nil
 		}
-		fmt.Println("获取response失败", err)
+		detail, _ := io.ReadAll(resp)
+		s.Logger.Warn("获取response失败",
+			zap.String("modelId", conf.ModelId),
+			zap.String("provider", strconv.FormatUint(conf.ProviderId, 10)),
+			zap.String("providerType", conf.ProviderType),
+			zap.String("providerName", conf.ProviderName),
+			zap.String("detail", string(detail)),
+			zap.Error(err))
 		// 标记模型不可用
 		err = s.modelRepo.UpdateStatus(ctx, conf.ModelUID, model.ChatStatus, 0)
-		fmt.Println("更新状态失败", err)
+		s.Logger.Warn("更新状态失败",
+			zap.String("modelId", conf.ModelId),
+			zap.String("provider", strconv.FormatUint(conf.ProviderId, 10)),
+			zap.Error(err))
 	}
+	s.GoLogReq(ctx, reqModelId, 2)
 	return nil, nil, errors.New("no service available")
 }
 
@@ -110,12 +160,13 @@ func (s *oaiService) ChatCompletionsByBytes(ctx context.Context, req []byte, mod
 		req, err = changeBytesModelId(req, conf.ModelId)
 		resp, respHeader, err := newProvider.ChatCompletionsByBytes(ctx, req)
 		if err == nil {
+			s.GoLogReq(ctx, conf.ModelId, 1)
 			return resp, respHeader, nil
 		}
 		// 标记模型不可用
 		err = s.modelRepo.UpdateStatus(ctx, conf.ModelUID, model.ChatStatus, 0)
-		fmt.Println("更新状态失败", err)
 	}
+	s.GoLogReq(ctx, modelId, 2)
 	return nil, nil, errors.New("no service available")
 }
 
@@ -162,12 +213,13 @@ func (s *oaiService) Completions(ctx context.Context, req *adapterV1.Completions
 		req.Model = conf.ModelId
 		resp, respHeader, err := newProvider.Completions(ctx, req)
 		if err == nil {
+			s.GoLogReq(ctx, conf.ModelId, 1)
 			return resp, respHeader, nil
 		}
 		// 标记模型不可用
 		err = s.modelRepo.UpdateStatus(ctx, conf.ModelUID, model.ChatStatus, 0)
-		fmt.Println("更新状态失败", err)
 	}
+	s.GoLogReq(ctx, reqModelId, 2)
 	return nil, nil, errors.New("no service available")
 }
 
@@ -184,12 +236,13 @@ func (s *oaiService) CompletionsByBytes(ctx context.Context, req []byte, modelId
 		req, err = changeBytesModelId(req, conf.ModelId)
 		resp, respHeader, err := newProvider.CompletionsByBytes(ctx, req)
 		if err == nil {
+			s.GoLogReq(ctx, conf.ModelId, 1)
 			return resp, respHeader, nil
 		}
 		// 标记模型不可用
 		err = s.modelRepo.UpdateStatus(ctx, conf.ModelUID, model.ChatStatus, 0)
-		fmt.Println("更新状态失败", err)
 	}
+	s.GoLogReq(ctx, modelId, 2)
 	return nil, nil, errors.New("no service available")
 }
 
@@ -207,12 +260,13 @@ func (s *oaiService) Embeddings(ctx context.Context, req *adapterV1.EmbeddingReq
 		req.Model = conf.ModelId
 		resp, respHeader, err := newProvider.Embeddings(ctx, req)
 		if err == nil {
+			s.GoLogReq(ctx, conf.ModelId, 1)
 			return resp, respHeader, nil
 		}
 		// 标记模型不可用
 		err = s.modelRepo.UpdateStatus(ctx, conf.ModelUID, model.ChatStatus, 0)
-		fmt.Println("更新状态失败", err)
 	}
+	s.GoLogReq(ctx, reqModelId, 2)
 	return nil, nil, errors.New("no service available")
 }
 
@@ -229,12 +283,13 @@ func (s *oaiService) EmbeddingsByBytes(ctx context.Context, req []byte, modelId 
 		req, err = changeBytesModelId(req, conf.ModelId)
 		resp, respHeader, err := newProvider.EmbeddingsByBytes(ctx, req)
 		if err == nil {
+			s.GoLogReq(ctx, conf.ModelId, 1)
 			return resp, respHeader, nil
 		}
 		// 标记模型不可用
 		err = s.modelRepo.UpdateStatus(ctx, conf.ModelUID, model.ChatStatus, 0)
-		fmt.Println("更新状态失败", err)
 	}
+	s.GoLogReq(ctx, modelId, 2)
 	return nil, nil, errors.New("no service available")
 }
 
@@ -252,12 +307,13 @@ func (s *oaiService) CreateSpeech(ctx context.Context, req *adapterV1.SpeechRequ
 		req.Model = conf.ModelId
 		resp, respHeader, err := newProvider.CreateSpeech(ctx, req)
 		if err == nil {
+			s.GoLogReq(ctx, conf.ModelId, 1)
 			return resp, respHeader, nil
 		}
 		// 标记模型不可用
 		err = s.modelRepo.UpdateStatus(ctx, conf.ModelUID, model.ChatStatus, 0)
-		fmt.Println("更新状态失败", err)
 	}
+	s.GoLogReq(ctx, reqModelId, 2)
 	return nil, nil, errors.New("no service available")
 }
 
@@ -274,12 +330,13 @@ func (s *oaiService) CreateSpeechByBytes(ctx context.Context, req []byte, modelI
 		req, err = changeBytesModelId(req, conf.ModelId)
 		resp, respHeader, err := newProvider.CreateSpeechByBytes(ctx, req)
 		if err == nil {
+			s.GoLogReq(ctx, conf.ModelId, 1)
 			return resp, respHeader, nil
 		}
 		// 标记模型不可用
 		err = s.modelRepo.UpdateStatus(ctx, conf.ModelUID, model.ChatStatus, 0)
-		fmt.Println("更新状态失败", err)
 	}
+	s.GoLogReq(ctx, modelId, 2)
 	return nil, nil, errors.New("no service available")
 }
 
@@ -297,12 +354,13 @@ func (s *oaiService) Transcriptions(ctx context.Context, req *adapterV1.Transcri
 		req.Model = conf.ModelId
 		resp, respHeader, err := newProvider.Transcriptions(ctx, req)
 		if err == nil {
+			s.GoLogReq(ctx, conf.ModelId, 1)
 			return resp, respHeader, nil
 		}
 		// 标记模型不可用
 		err = s.modelRepo.UpdateStatus(ctx, conf.ModelUID, model.ChatStatus, 0)
-		fmt.Println("更新状态失败", err)
 	}
+	s.GoLogReq(ctx, reqModelId, 2)
 	return nil, nil, errors.New("no service available")
 }
 
@@ -320,12 +378,13 @@ func (s *oaiService) Translations(ctx context.Context, req *adapterV1.Translatio
 		req.Model = conf.ModelId
 		resp, respHeader, err := newProvider.Translations(ctx, req)
 		if err == nil {
+			s.GoLogReq(ctx, conf.ModelId, 1)
 			return resp, respHeader, nil
 		}
 		// 标记模型不可用
 		err = s.modelRepo.UpdateStatus(ctx, conf.ModelUID, model.ChatStatus, 0)
-		fmt.Println("更新状态失败", err)
 	}
+	s.GoLogReq(ctx, reqModelId, 2)
 	return nil, nil, errors.New("no service available")
 }
 
@@ -343,12 +402,13 @@ func (s *oaiService) CreateImage(ctx context.Context, req *adapterV1.CreateImage
 		req.Model = conf.ModelId
 		resp, respHeader, err := newProvider.CreateImage(ctx, req)
 		if err == nil {
+			s.GoLogReq(ctx, conf.ModelId, 1)
 			return resp, respHeader, nil
 		}
 		// 标记模型不可用
 		err = s.modelRepo.UpdateStatus(ctx, conf.ModelUID, model.ChatStatus, 0)
-		fmt.Println("更新状态失败", err)
 	}
+	s.GoLogReq(ctx, reqModelId, 2)
 	return nil, nil, errors.New("no service available")
 }
 
@@ -365,12 +425,13 @@ func (s *oaiService) CreateImageByBytes(ctx context.Context, req []byte, modelId
 		req, err = changeBytesModelId(req, conf.ModelId)
 		resp, respHeader, err := newProvider.CreateImageByBytes(ctx, req)
 		if err == nil {
+			s.GoLogReq(ctx, conf.ModelId, 1)
 			return resp, respHeader, nil
 		}
 		// 标记模型不可用
 		err = s.modelRepo.UpdateStatus(ctx, conf.ModelUID, model.ChatStatus, 0)
-		fmt.Println("更新状态失败", err)
 	}
+	s.GoLogReq(ctx, modelId, 2)
 	return nil, nil, errors.New("no service available")
 }
 
@@ -388,12 +449,13 @@ func (s *oaiService) CreateImageEdit(ctx context.Context, req *adapterV1.EditIma
 		req.Model = conf.ModelId
 		resp, respHeader, err := newProvider.CreateImageEdit(ctx, req)
 		if err == nil {
+			s.GoLogReq(ctx, conf.ModelId, 1)
 			return resp, respHeader, nil
 		}
 		// 标记模型不可用
 		err = s.modelRepo.UpdateStatus(ctx, conf.ModelUID, model.ChatStatus, 0)
-		fmt.Println("更新状态失败", err)
 	}
+	s.GoLogReq(ctx, reqModelId, 2)
 	return nil, nil, errors.New("no service available")
 }
 
@@ -411,12 +473,13 @@ func (s *oaiService) ImageVariations(ctx context.Context, req *adapterV1.CreateI
 		req.Model = conf.ModelId
 		resp, respHeader, err := newProvider.ImageVariations(ctx, req)
 		if err == nil {
+			s.GoLogReq(ctx, conf.ModelId, 1)
 			return resp, respHeader, nil
 		}
 		// 标记模型不可用
 		err = s.modelRepo.UpdateStatus(ctx, conf.ModelUID, model.ChatStatus, 0)
-		fmt.Println("更新状态失败", err)
 	}
+	s.GoLogReq(ctx, reqModelId, 2)
 	return nil, nil, errors.New("no service available")
 }
 

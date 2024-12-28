@@ -29,7 +29,7 @@ type providerService struct {
 }
 
 func (s *providerService) CreateProvider(ctx context.Context, req *v1.CreateProviderRequest) (uint64, error) {
-	id := s.sid.GenUint64()
+	id := s.Sid.GenUint64()
 	format := "%s@%s@%s"
 	hashId := encrypte.Sha256Encode(fmt.Sprintf(format, req.Type, req.EndPoint, req.APIKey))
 	provider := &model.Provider{
@@ -40,7 +40,7 @@ func (s *providerService) CreateProvider(ctx context.Context, req *v1.CreateProv
 		HashId:   hashId,
 	}
 	provider.Id = id
-	err := s.tm.Transaction(ctx, func(ctx context.Context) error {
+	err := s.Tm.Transaction(ctx, func(ctx context.Context) error {
 		exist, _ := s.repo.ExistsHashId(ctx, provider.HashId)
 		if exist {
 			return errors.New("provider already exists")
@@ -51,7 +51,7 @@ func (s *providerService) CreateProvider(ctx context.Context, req *v1.CreateProv
 		}
 
 		for _, modelId := range req.Models {
-			newId := s.sid.GenUint64()
+			newId := s.Sid.GenUint64()
 			newModel := &model.Model{
 				ProviderId: id,
 				ModelKey:   modelId,

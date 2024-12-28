@@ -9,7 +9,9 @@ import (
 	"github.com/jiu-u/oai-api/internal/repository"
 	"github.com/jiu-u/oai-api/internal/server"
 	"github.com/jiu-u/oai-api/internal/service"
+	"github.com/jiu-u/oai-api/pkg/cache"
 	"github.com/jiu-u/oai-api/pkg/config"
+	"github.com/jiu-u/oai-api/pkg/jwt"
 	"github.com/jiu-u/oai-api/pkg/log"
 	"github.com/jiu-u/oai-api/pkg/sid"
 )
@@ -44,5 +46,7 @@ func NewWire(cfg *config.Config, logger *log.Logger) (*server.DataLoadTask, func
 		serviceSet,
 		serverSet,
 		sid.NewSid,
+		jwt.NewJwt,
+		cache.New,
 	))
 }

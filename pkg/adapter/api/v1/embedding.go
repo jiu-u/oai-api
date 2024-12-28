@@ -2,7 +2,7 @@ package v1
 
 type EmbeddingRequest struct {
 	Model          string `json:"model"`
-	Input          string `json:"input"`
+	Input          any    `json:"input"`
 	User           string `json:"user,omitempty"`
 	EncodingFormat string `json:"encoding_format,omitempty"`
 	Dimensions     int    `json:"dimensions,omitempty"`

@@ -45,6 +45,12 @@ type Config struct {
 			Key string `mapstructure:"key"`
 		} `mapstructure:"jwt"`
 	} `mapstructure:"security"`
+	Oauth struct {
+		LinuxDo struct {
+			ClientId     string `mapstructure:"client_id"`
+			ClientSecret string `mapstructure:"client_secret"`
+		} `mapstructure:"linux_do"`
+	} `mapstructure:"oauth"`
 	Log struct {
 		Level         string `mapstructure:"log_level"`
 		Encoding      string `mapstructure:"encoding"`
@@ -64,6 +70,10 @@ type Config struct {
 const prefix = "OAI"
 
 func LoadConfig(path string) *Config {
+	fmt.Println("LoadEnv", os.Getenv(prefix+"_OAUTH_LINUX_DO_CLIENT_ID"))
+	fmt.Println("LoadEnv", os.Getenv(prefix+"_OAUTH_LINUX_DO_CLIENT_SECRET"))
+	//os.Setenv(prefix+"_OAUTH_LINUX_DO_CLIENT_ID", "123131213131213")
+	//os.Setenv(prefix+"_OAUTH_LINUX_DO_CLIENT_SECRET", "123131213131213")
 	envConf := os.Getenv(prefix + "_APP_CONF")
 	if envConf == "" {
 		envConf = path
@@ -74,18 +84,23 @@ func LoadConfig(path string) *Config {
 	conf.SetEnvPrefix("OAI")
 	// 设置环境变量的分隔符
 	conf.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	conf.BindEnv("oauth.linux_do.client_id", "OAI_OAUTH_LINUX_DO_CLIENT_ID")
+	conf.BindEnv("oauth.linux_do.client_secret", "OAI_OAUTH_LINUX_DO_CLIENT_SECRET")
 	conf.SetConfigFile(envConf)
 	conf.AutomaticEnv()
 	err := conf.ReadInConfig()
 	if err != nil {
 		panic(err)
 	}
+
 	var cfg Config
 	err = conf.Unmarshal(&cfg)
 	if err != nil {
 		panic(err)
 	}
 	loadDataYaml(&cfg)
+	fmt.Println("clientId", cfg.Oauth.LinuxDo.ClientId)
+	fmt.Println("clientSecret", cfg.Oauth.LinuxDo.ClientSecret)
 	return &cfg
 }
 
