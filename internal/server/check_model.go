@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"github.com/jiu-u/oai-api/internal/model"
 	"github.com/jiu-u/oai-api/internal/repository"
 	"github.com/jiu-u/oai-api/internal/service"
 	adapterV1 "github.com/jiu-u/oai-api/pkg/adapter/api/v1"
@@ -15,23 +14,26 @@ import (
 )
 
 type CheckModelServer struct {
-	providerRepo repository.ProviderRepo
-	modelRepo    repository.ModelRepo
-	cfg          *config.Config
-	logger       *log.Logger
+	channelRepo      repository.ChannelRepository
+	channelModelRepo repository.ChannelModelRepository
+	lbSvc            service.LoadBalanceServiceBeta
+	cfg              *config.Config
+	logger           *log.Logger
 }
 
 func NewCheckModelServer(
-	modelRepo repository.ModelRepo,
 	cfg *config.Config,
-	providerRepo repository.ProviderRepo,
+	lbSvc service.LoadBalanceServiceBeta,
+	channelRepo repository.ChannelRepository,
+	channelModelRepo repository.ChannelModelRepository,
 	logger *log.Logger,
 ) *CheckModelServer {
 	return &CheckModelServer{
-		modelRepo:    modelRepo,
-		cfg:          cfg,
-		providerRepo: providerRepo,
-		logger:       logger,
+		lbSvc:            lbSvc,
+		channelRepo:      channelRepo,
+		channelModelRepo: channelModelRepo,
+		cfg:              cfg,
+		logger:           logger,
 	}
 }
 
@@ -50,6 +52,10 @@ func (c *CheckModelServer) CheckModelChatStatus(ctx context.Context) error {
 		for _ = range task {
 			uid := shortuuid.New()
 			ctx = c.logger.WithValue(context.Background(), zap.String("traceId", uid), zap.String("type", "check_cron"))
+			err := c.lbSvc.RecoverChannelModels(ctx)
+			if err != nil {
+				c.logger.WithContext(ctx).Error("定时检查|chat|模型恢复失败", zap.Error(err))
+			}
 			c.logger.WithContext(ctx).Info("一轮定时检查开始")
 			for _, modelId := range checklist {
 				modelIds := []string{modelId}
@@ -73,55 +79,49 @@ func (c *CheckModelServer) CheckModelChatStatus(ctx context.Context) error {
 }
 
 func (c *CheckModelServer) CheckModel(ctx context.Context, modelIds []string) error {
-	list, err := c.modelRepo.FindCheckModels(ctx, modelIds)
+	list, err := c.channelModelRepo.FindCheckChannelModels(ctx, modelIds)
 	if err != nil {
 		return err
 	}
 	logger := c.logger.WithContext(ctx)
 	for _, item := range list {
 		time.Sleep(5 * time.Second)
-		ctx = context.WithValue(ctx, "modelId", item.Model)
+		ctx = context.WithValue(ctx, "modelId", item.ModelKey)
 		zapLogger := logger.With(
-			zap.Uint64("providerId", item.ProviderId),
-			zap.String("model", item.Model),
-			zap.Uint64("modelId", item.Id),
+			zap.Uint64("channelId", item.ChannelId),
+			zap.String("modelKey", item.ModelKey),
+			zap.Uint64("modelRecordId", item.Id),
 		)
-		//ctx = c.logger.WithValue(
-		//	ctx,
-		//	zap.Uint64("providerId", item.ProviderId),
-		//	zap.String("model", item.Model),
-		//	zap.Uint64("modelId", item.Id),
-		//)
-		providerConf, err := c.providerRepo.FindOne(ctx, item.ProviderId)
+		channel, err := c.channelRepo.FindChannelById(ctx, item.ChannelId)
 		if err != nil {
-			zapLogger.Warn("定时检查|chat|根据id获取provider失败", zap.Error(err))
+			zapLogger.Error("定时检查|chat|数据库根据id获取channel失败", zap.Error(err))
 			continue
 		}
 		zapLogger = zapLogger.With(
-			zap.String("providerName", providerConf.Name),
-			zap.String("providerApiKey", providerConf.APIKey),
+			zap.String("channelName", channel.Name),
+			zap.String("providerApiKey", channel.APIKey),
 		)
-		//ctx := c.logger.WithValue(ctx,
-		//	zap.String("providerName", providerConf.Name),
-		//	zap.String("providerApiKey", providerConf.APIKey),
-		//)
-		conf := &service.ProviderConf{
-			ProviderName: providerConf.Name,
-			ProviderType: providerConf.Type,
-			EndPoint:     providerConf.EndPoint,
-			APIKey:       providerConf.APIKey,
+		conf := &service.ChannelModelConf{
+			ChannelId:       item.ChannelId,
+			ChannelName:     channel.Name,
+			ChannelType:     channel.Type,
+			ChannelKey:      channel.APIKey,
+			ChannelEndPoint: channel.EndPoint,
+			ModelRecordId:   item.Id,
+			ModelKey:        item.ModelKey,
+			Weight:          item.Weight,
 		}
-		newProvider, err := service.NewProvider(conf)
+		newProvider, err := service.NewOAIProvider(conf)
 		if err != nil {
 			zapLogger.Warn("定时检查|chat|创建provider失败", zap.Error(err))
 			continue
 		}
 		body, _, err := newProvider.ChatCompletions(ctx, &adapterV1.ChatCompletionRequest{
-			Model: item.Model,
+			Model: item.ModelKey,
 			Messages: []adapterV1.Message{
 				{
 					Role:    "user",
-					Content: "hello,测试!",
+					Content: []byte(`"hello,测试!"`),
 				},
 			},
 			Stream:    true,
@@ -132,19 +132,20 @@ func (c *CheckModelServer) CheckModel(ctx context.Context, modelIds []string) er
 				bodyDetail, err := io.ReadAll(body)
 				if err != nil {
 					zapLogger.Warn("定时检查|chat|对话请求失败|读取body失败", zap.Error(err))
-					continue
+				} else {
+					zapLogger.Warn("定时检查|chat|对话请求失败", zap.Error(err), zap.String("detail", string(bodyDetail)))
 				}
-				zapLogger.Warn("定时检查|chat|对话请求失败", zap.Error(err), zap.String("detail", string(bodyDetail)))
+			} else {
+				zapLogger.Warn("定时检查|chat|对话请求失败", zap.Error(err), zap.String("detail", err.Error()))
 			}
 			// 标记模型不可用
-			zapLogger.Warn("定时检查|chat|对话请求失败", zap.Error(err), zap.String("detail", err.Error()))
-			err = c.modelRepo.UpdateStatus(ctx, item.Id, model.ChatStatus, 0)
+			err = c.lbSvc.FailCb(ctx, item.Id)
 			if err != nil {
 				zapLogger.Warn("定时检查|chat|更新模型状态失败", zap.Error(err))
 			}
 			continue
 		}
-		err = c.modelRepo.UpdateStatus(ctx, item.Id, model.ChatStatus, 1)
+		err = c.lbSvc.SuccessCb(ctx, item.Id)
 		if err != nil {
 			zapLogger.Warn("定时检查|chat|更新模型状态失败", zap.Error(err))
 		}

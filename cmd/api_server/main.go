@@ -13,7 +13,7 @@ import (
 
 func main() {
 	var envConf = flag.String("conf", "config/local.yaml", "config path, eg: -conf ./config/local.yml")
-	var load = flag.Bool("load", true, "load data from yaml file,eg: -load true")
+	var load = flag.Bool("load", false, "load data from yaml file,eg: -load true")
 	flag.Parse()
 	conf := config.LoadConfig(*envConf)
 	logger := log.NewLogger(conf)

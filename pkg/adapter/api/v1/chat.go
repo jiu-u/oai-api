@@ -1,5 +1,7 @@
 package v1
 
+import "encoding/json"
+
 type (
 	ChatCompletionRequest struct {
 		Model               string         `json:"model"`                 // 模型名称
@@ -35,14 +37,29 @@ type (
 	}
 
 	Message struct {
-		Role         string `json:"role"`
-		Content      any    `json:"content"`
-		Name         string `json:"name,omitempty"`
-		ToolCallId   string `json:"tool_call_id,omitempty"`
-		Refusal      any    `json:"refusal,omitempty"`
-		Audio        any    `json:"audio,omitempty"`
-		ToolCalls    any    `json:"tool_calls,omitempty"`
-		FunctionCall any    `json:"function_call,omitempty"`
+		Role         string          `json:"role"`
+		Content      json.RawMessage `json:"content"`
+		Name         string          `json:"name,omitempty"`
+		ToolCallId   string          `json:"tool_call_id,omitempty"`
+		Refusal      any             `json:"refusal,omitempty"`
+		Audio        any             `json:"audio,omitempty"`
+		ToolCalls    any             `json:"tool_calls,omitempty"`
+		FunctionCall any             `json:"function_call,omitempty"`
+	}
+	StringContent = string
+	MediaContent  struct {
+		Type       string `json:"type"`
+		Text       string `json:"text,omitempty"`
+		ImageUrl   any    `json:"image_url,omitempty"`
+		InputAudio any    `json:"input_audio,omitempty"`
+	}
+	MessageImageUrl struct {
+		Url    string `json:"url"`
+		Detail string `json:"detail"`
+	}
+	MessageInputAudio struct {
+		Data   string `json:"data"` //base64
+		Format string `json:"format"`
 	}
 )
 

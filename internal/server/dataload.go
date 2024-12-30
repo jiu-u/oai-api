@@ -8,16 +8,15 @@ import (
 	"github.com/jiu-u/oai-api/pkg/log"
 	"go.uber.org/zap"
 	"strconv"
-	"strings"
 )
 
 type DataLoadTask struct {
 	Cfg    *config.Config
-	svc    service.ProviderService
+	svc    service.ChannelService
 	logger *log.Logger
 }
 
-func NewDataLoad(svc service.ProviderService, cfg *config.Config, logger *log.Logger) *DataLoadTask {
+func NewDataLoad(svc service.ChannelService, cfg *config.Config, logger *log.Logger) *DataLoadTask {
 	return &DataLoadTask{
 		svc:    svc,
 		Cfg:    cfg,
@@ -37,19 +36,17 @@ func (s *DataLoadTask) run(ctx context.Context) error {
 	providers := s.Cfg.Providers
 	total := 0
 	succ := 0
-	repeat := 0
-
+	//repeat := 0
 	for _, provider := range providers {
 		for _, key := range provider.APIKeys {
 			total++
-			conf := &service.ProviderConf{
-				ProviderName:   provider.Name,
-				ProviderType:   provider.Type,
-				EndPoint:       provider.EndPoint,
-				APIKey:         key,
-				ProviderModels: provider.Models,
+			conf := &service.ChannelModelConf{
+				ChannelName:     provider.Name,
+				ChannelType:     provider.Type,
+				ChannelKey:      key,
+				ChannelEndPoint: provider.EndPoint,
 			}
-			instance, err := service.NewProvider(conf)
+			instance, err := service.NewOAIProvider(conf)
 			if err != nil {
 				continue
 			}
@@ -73,20 +70,15 @@ func (s *DataLoadTask) run(ctx context.Context) error {
 				}
 			}
 			req := apiV1.CreateProviderRequest{
-				Name:     conf.ProviderName,
-				Type:     conf.ProviderType,
-				EndPoint: conf.EndPoint,
+				Name:     conf.ChannelName,
+				Type:     conf.ChannelType,
+				EndPoint: conf.ChannelEndPoint,
 				APIKey:   key,
 				Weight:   provider.Weight,
 				Models:   models,
 			}
-			_, err = s.svc.CreateProvider(ctx, &req)
+			_, err = s.svc.CreateChannel(ctx, &req)
 			if err != nil {
-				if strings.Contains(err.Error(), "provider already exists") {
-					repeat++
-					succ++
-					continue
-				}
 				s.logger.Error("创建provider失败", zap.Error(err))
 				continue
 			}
@@ -95,7 +87,7 @@ func (s *DataLoadTask) run(ctx context.Context) error {
 	}
 	s.logger.Info("总共创建：" + strconv.Itoa(total) + "个provider")
 	s.logger.Info("成功创建：" + strconv.Itoa(succ) + "个provider")
-	s.logger.Info("重复数据：" + strconv.Itoa(repeat) + "个provider")
+	//s.logger.Info("重复数据：" + strconv.Itoa(repeat) + "个provider")
 	s.logger.Info("数据加载完成")
 	return nil
 }

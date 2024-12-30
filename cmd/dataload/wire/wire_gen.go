@@ -13,7 +13,9 @@ import (
 	"github.com/jiu-u/oai-api/internal/server"
 	"github.com/jiu-u/oai-api/internal/service"
 	"github.com/jiu-u/oai-api/pkg/app"
+	"github.com/jiu-u/oai-api/pkg/cache"
 	"github.com/jiu-u/oai-api/pkg/config"
+	"github.com/jiu-u/oai-api/pkg/jwt"
 	"github.com/jiu-u/oai-api/pkg/log"
 	"github.com/jiu-u/oai-api/pkg/sid"
 )
@@ -25,11 +27,13 @@ func NewWire(cfg *config.Config, logger *log.Logger) (*app.App, func(), error) {
 	db := repository.NewDB(cfg)
 	repositoryRepository := repository.NewRepository(logger, db)
 	transaction := repository.NewTransaction(repositoryRepository)
-	serviceService := service.NewService(sidSid, transaction, logger)
-	providerRepo := repository.NewProviderRepo(repositoryRepository)
-	modelRepo := repository.NewModelRepo(repositoryRepository)
-	providerService := service.NewProviderService(serviceService, providerRepo, modelRepo)
-	dataLoadTask := server.NewDataLoad(providerService, cfg, logger)
+	jwtJWT := jwt.NewJwt(cfg)
+	cacheCache := cache.New()
+	serviceService := service.NewService(sidSid, transaction, logger, jwtJWT, cacheCache)
+	channelRepository := repository.NewChannelRepository(repositoryRepository)
+	channelModelRepository := repository.NewChannelModelRepository(repositoryRepository)
+	channelService := service.NewChannelService(serviceService, channelRepository, channelModelRepository)
+	dataLoadTask := server.NewDataLoad(channelService, cfg, logger)
 	appApp := newApp(dataLoadTask)
 	return appApp, func() {
 	}, nil
@@ -37,9 +41,9 @@ func NewWire(cfg *config.Config, logger *log.Logger) (*app.App, func(), error) {
 
 // wire.go:
 
-var repositorySet = wire.NewSet(repository.NewDB, repository.NewRepository, repository.NewTransaction, repository.NewModelRepo, repository.NewProviderRepo)
+var repositorySet = wire.NewSet(repository.NewDB, repository.NewRepository, repository.NewTransaction, repository.NewChannelRepository, repository.NewChannelModelRepository)
 
-var serviceSet = wire.NewSet(service.NewService, service.NewOaiService, service.NewProviderService, service.NewLoadBalanceService)
+var serviceSet = wire.NewSet(service.NewService, service.NewOaiService, service.NewChannelService, service.NewLoadBalanceServiceBeta)
 
 var handlerSet = wire.NewSet(handler.NewHandler, handler.NewOAIHandler)
 

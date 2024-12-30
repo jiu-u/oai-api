@@ -23,18 +23,18 @@ var repositorySet = wire.NewSet(
 	repository.NewDB,
 	repository.NewRepository,
 	repository.NewTransaction,
-	repository.NewModelRepo,
-	repository.NewProviderRepo,
 	repository.NewUserRepository,
 	repository.NewApiKeyRepository,
 	repository.NewRequestLogRepository,
+	repository.NewChannelRepository,
+	repository.NewChannelModelRepository,
 )
 
 var serviceSet = wire.NewSet(
 	service.NewService,
 	service.NewOaiService,
-	service.NewProviderService,
-	service.NewLoadBalanceService,
+	service.NewChannelService,
+	service.NewLoadBalanceServiceBeta,
 	service.NewRequestLogService,
 	service.NewApiKeyService,
 	service.NewUserService,
@@ -55,19 +55,19 @@ var handlerSet = wire.NewSet(
 
 var serverSet = wire.NewSet(
 	server.NewHTTPServer,
-	//server.NewCheckModelServer,
+	server.NewCheckModelServer,
 )
 
 // build App
 func newApp(
 	httpServer *http.Server,
-	// checkServer *server.CheckModelServer,
+	checkServer *server.CheckModelServer,
 	// job *server.Job,
 	// task *server.Task,
 ) *app.App {
 	return app.NewApp(
-		//app.WithServer(httpServer, checkServer),
-		app.WithServer(httpServer),
+		app.WithServer(httpServer, checkServer),
+		//app.WithServer(httpServer),
 		app.WithName("demo-server"),
 	)
 }

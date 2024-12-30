@@ -56,7 +56,7 @@ func NewWire(cfg *config.Config, logger *log.Logger) (*WireApp, func(), error) {
 	checkModelServer := server.NewCheckModelServer(modelRepo, cfg, providerRepo, logger)
 	app := newApp(httpServer, checkModelServer)
 	migrate := server.NewMigrate(db, logger)
-	providerService := service.NewProviderService(serviceService, providerRepo, modelRepo)
+	providerService := service.NewChannelService(serviceService, providerRepo, modelRepo)
 	dataLoadTask := server.NewDataLoad(providerService, cfg, logger)
 	wireApp := newWireApp(app, migrate, dataLoadTask)
 	return wireApp, func() {
@@ -67,7 +67,7 @@ func NewWire(cfg *config.Config, logger *log.Logger) (*WireApp, func(), error) {
 
 var repositorySet = wire.NewSet(repository.NewDB, repository.NewRepository, repository.NewTransaction, repository.NewModelRepo, repository.NewProviderRepo, repository.NewUserRepository, repository.NewApiKeyRepository, repository.NewRequestLogRepository)
 
-var serviceSet = wire.NewSet(service.NewService, service.NewOaiService, service.NewProviderService, service.NewLoadBalanceService, service.NewRequestLogService, service.NewApiKeyService, service.NewUserService, service.NewAuthService, oauth2.NewService, oauth2.NewLinuxDoService)
+var serviceSet = wire.NewSet(service.NewService, service.NewOaiService, service.NewChannelService, service.NewLoadBalanceService, service.NewRequestLogService, service.NewApiKeyService, service.NewUserService, service.NewAuthService, oauth2.NewService, oauth2.NewLinuxDoService)
 
 var handlerSet = wire.NewSet(handler.NewHandler, handler.NewOAIHandler, handler.NewOAuth2Handler, handler.NewApiKeyHandler, handler.NewAuthHandler, handler.NewRequestLogHandler, handler.NewUserHandler)
 

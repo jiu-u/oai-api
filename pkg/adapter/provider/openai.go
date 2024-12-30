@@ -393,7 +393,7 @@ func (p *OpenAIProvider) DoRequest(ctx context.Context, url string, Method strin
 		if err == nil {
 			errDetail = string(errBytes)
 		}
-		return nil, nil, errors.New(resp.Status + ": " + errDetail)
+		return io.NopCloser(bytes.NewReader([]byte(errDetail))), nil, errors.New(resp.Status + ": " + errDetail)
 	}
 	return resp.Body, resp.Header, nil
 }

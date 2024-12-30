@@ -29,19 +29,19 @@ func NewWire(cfg *config.Config, logger *log.Logger) (*server.DataLoadTask, func
 	jwtJWT := jwt.NewJwt(cfg)
 	cacheCache := cache.New()
 	serviceService := service.NewService(sidSid, transaction, logger, jwtJWT, cacheCache)
-	providerRepo := repository.NewProviderRepo(repositoryRepository)
-	modelRepo := repository.NewModelRepo(repositoryRepository)
-	providerService := service.NewProviderService(serviceService, providerRepo, modelRepo)
-	dataLoadTask := server.NewDataLoad(providerService, cfg, logger)
+	channelRepository := repository.NewChannelRepository(repositoryRepository)
+	channelModelRepository := repository.NewChannelModelRepository(repositoryRepository)
+	channelService := service.NewChannelService(serviceService, channelRepository, channelModelRepository)
+	dataLoadTask := server.NewDataLoad(channelService, cfg, logger)
 	return dataLoadTask, func() {
 	}, nil
 }
 
 // wire.go:
 
-var repositorySet = wire.NewSet(repository.NewDB, repository.NewRepository, repository.NewTransaction, repository.NewModelRepo, repository.NewProviderRepo)
+var repositorySet = wire.NewSet(repository.NewDB, repository.NewRepository, repository.NewTransaction, repository.NewChannelModelRepository, repository.NewChannelRepository)
 
-var serviceSet = wire.NewSet(service.NewService, service.NewOaiService, service.NewProviderService, service.NewLoadBalanceService)
+var serviceSet = wire.NewSet(service.NewService, service.NewOaiService, service.NewChannelService)
 
 var handlerSet = wire.NewSet(handler.NewHandler, handler.NewOAIHandler)
 

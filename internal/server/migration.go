@@ -22,8 +22,10 @@ func NewMigrate(db *gorm.DB, logger *log.Logger) *Migrate {
 }
 func (m *Migrate) Start(ctx context.Context) error {
 	if err := m.db.AutoMigrate(
-		new(model.Model),
-		new(model.Provider),
+		new(model.ChannelModel),
+		new(model.Channel),
+		//new(model.Model),
+		//new(model.Provider),
 		new(model.User),
 		new(model.ApiKey),
 		new(model.RequestLog),

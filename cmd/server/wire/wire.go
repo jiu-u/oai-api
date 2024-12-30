@@ -33,7 +33,7 @@ var repositorySet = wire.NewSet(
 var serviceSet = wire.NewSet(
 	service.NewService,
 	service.NewOaiService,
-	service.NewProviderService,
+	service.NewChannelService,
 	service.NewLoadBalanceService,
 	service.NewRequestLogService,
 	service.NewApiKeyService,
@@ -98,7 +98,7 @@ type WireApp struct {
 //	panic(wire.Build(
 //		repositorySet,
 //		service.NewService,
-//		service.NewProviderService,
+//		service.NewChannelService,
 //		sid.NewSid,
 //		server.NewDataLoad,
 //	))

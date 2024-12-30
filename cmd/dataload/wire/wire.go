@@ -10,7 +10,9 @@ import (
 	"github.com/jiu-u/oai-api/internal/server"
 	"github.com/jiu-u/oai-api/internal/service"
 	"github.com/jiu-u/oai-api/pkg/app"
+	"github.com/jiu-u/oai-api/pkg/cache"
 	"github.com/jiu-u/oai-api/pkg/config"
+	"github.com/jiu-u/oai-api/pkg/jwt"
 	"github.com/jiu-u/oai-api/pkg/log"
 	"github.com/jiu-u/oai-api/pkg/sid"
 )
@@ -19,15 +21,15 @@ var repositorySet = wire.NewSet(
 	repository.NewDB,
 	repository.NewRepository,
 	repository.NewTransaction,
-	repository.NewModelRepo,
-	repository.NewProviderRepo,
+	repository.NewChannelRepository,
+	repository.NewChannelModelRepository,
 )
 
 var serviceSet = wire.NewSet(
 	service.NewService,
 	service.NewOaiService,
-	service.NewProviderService,
-	service.NewLoadBalanceService,
+	service.NewChannelService,
+	service.NewLoadBalanceServiceBeta,
 )
 
 var handlerSet = wire.NewSet(
@@ -57,6 +59,8 @@ func NewWire(cfg *config.Config, logger *log.Logger) (*app.App, func(), error) {
 		serviceSet,
 		serverSet,
 		sid.NewSid,
+		jwt.NewJwt,
+		cache.New,
 		newApp,
 	))
 }
