@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	apiV1 "github.com/jiu-u/oai-api/api/v1"
 	"github.com/jiu-u/oai-api/internal/service"
 	v1 "github.com/jiu-u/oai-api/pkg/adapter/api/v1"
 	"io"
@@ -34,23 +35,11 @@ func (h *OAIHandler) ChatCompletions(ctx *gin.Context) {
 		ctx.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
-	// 读取响应数据
 	defaultRespHandle(ctx, responseBody, respHeader)
-	//respBytes, err := io.ReadAll(responseBody)
-	//if err != nil {
-	//	ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Error reading response"})
-	//	return
-	//}
-	//// 设置响应头并返回 OpenAI API 的响应
-	//for k, v := range respHeader {
-	//	ctx.Header(k, v[0])
-	//}
-	//
-	//ctx.Data(http.StatusOK, getContentType(respHeader), respBytes)
 }
 
 func (h *OAIHandler) ChatCompletionsByBytes(ctx *gin.Context) {
-	var req v1.ChatCompletionRequest
+	var req apiV1.OnlyModelChatRequest
 	bodyBytes, err := io.ReadAll(ctx.Request.Body)
 	if err != nil {
 		ctx.JSON(400, gin.H{"error": err.Error()})
@@ -84,7 +73,7 @@ func (h *OAIHandler) Completions(ctx *gin.Context) {
 }
 
 func (h *OAIHandler) CompletionsByBytes(ctx *gin.Context) {
-	var req v1.CompletionsRequest
+	var req apiV1.OnlyModelChatRequest
 	bodyBytes, err := io.ReadAll(ctx.Request.Body)
 	if err != nil {
 		ctx.JSON(400, gin.H{"error": err.Error()})
@@ -128,7 +117,7 @@ func (h *OAIHandler) Embeddings(ctx *gin.Context) {
 }
 
 func (h *OAIHandler) EmbeddingsByBytes(ctx *gin.Context) {
-	var req v1.EmbeddingRequest
+	var req apiV1.OnlyModelChatRequest
 	bodyBytes, err := io.ReadAll(ctx.Request.Body)
 	if err != nil {
 		ctx.JSON(400, gin.H{"error": err.Error()})
@@ -162,7 +151,7 @@ func (h *OAIHandler) AudioSpeech(ctx *gin.Context) {
 }
 
 func (h *OAIHandler) AudioSpeechByBytes(ctx *gin.Context) {
-	var req v1.SpeechRequest
+	var req apiV1.OnlyModelChatRequest
 	bodyBytes, err := io.ReadAll(ctx.Request.Body)
 	if err != nil {
 		ctx.JSON(400, gin.H{"error": err.Error()})
@@ -231,7 +220,7 @@ func (h *OAIHandler) ImageGenerationByBytes(ctx *gin.Context) {
 		return
 	}
 	ctx.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-	var req v1.CreateImageRequest
+	var req apiV1.OnlyModelChatRequest
 	if err := ctx.ShouldBind(&req); err != nil {
 		ctx.JSON(400, gin.H{"error": err.Error()})
 		return
