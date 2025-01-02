@@ -32,14 +32,14 @@ func NewWire(cfg *config.Config, logger *log.Logger) (*WireApp, func(), error) {
 	transaction := repository.NewTransaction(repositoryRepository)
 	cacheCache := cache.New()
 	serviceService := service.NewService(sidSid, transaction, logger, jwtJWT, cacheCache)
-	providerRepo := repository.NewProviderRepo(repositoryRepository)
-	modelRepo := repository.NewModelRepo(repositoryRepository)
-	loadBalanceService := service.NewLoadBalanceService(serviceService, providerRepo, modelRepo, cfg)
+	channelRepository := repository.NewChannelRepository(repositoryRepository)
+	channelModelRepository := repository.NewChannelModelRepository(repositoryRepository)
+	loadBalanceServiceBeta := service.NewLoadBalanceServiceBeta(serviceService, channelRepository, channelModelRepository)
 	userRepository := repository.NewUserRepository(repositoryRepository)
 	requestLogRepository := repository.NewRequestLogRepository(repositoryRepository)
 	apiKeyRepository := repository.NewApiKeyRepository(repositoryRepository)
 	requestLogService := service.NewRequestLogService(serviceService, userRepository, requestLogRepository, apiKeyRepository)
-	oaiService := service.NewOaiService(serviceService, loadBalanceService, modelRepo, requestLogService)
+	oaiService := service.NewOaiService(serviceService, loadBalanceServiceBeta, requestLogService, channelModelRepository)
 	oaiHandler := handler.NewOAIHandler(oaiService)
 	handlerHandler := handler.NewHandler(logger)
 	linuxDoOauth := oauth2.NewLinuxDoService(cfg)
@@ -53,11 +53,11 @@ func NewWire(cfg *config.Config, logger *log.Logger) (*WireApp, func(), error) {
 	userHandler := handler.NewUserHandler(handlerHandler, userService)
 	requestLogHandler := handler.NewRequestLogHandler(handlerHandler, requestLogService)
 	httpServer := server.NewHTTPServer(logger, cfg, jwtJWT, oaiHandler, oAuth2Handler, authHandler, apiKeyService, apiKeyHandler, userHandler, requestLogHandler)
-	checkModelServer := server.NewCheckModelServer(modelRepo, cfg, providerRepo, logger)
+	checkModelServer := server.NewCheckModelServer(cfg, loadBalanceServiceBeta, channelRepository, channelModelRepository, logger)
 	app := newApp(httpServer, checkModelServer)
 	migrate := server.NewMigrate(db, logger)
-	providerService := service.NewChannelService(serviceService, providerRepo, modelRepo)
-	dataLoadTask := server.NewDataLoad(providerService, cfg, logger)
+	channelService := service.NewChannelService(serviceService, channelRepository, channelModelRepository)
+	dataLoadTask := server.NewDataLoad(channelService, cfg, logger)
 	wireApp := newWireApp(app, migrate, dataLoadTask)
 	return wireApp, func() {
 	}, nil
@@ -65,9 +65,9 @@ func NewWire(cfg *config.Config, logger *log.Logger) (*WireApp, func(), error) {
 
 // wire.go:
 
-var repositorySet = wire.NewSet(repository.NewDB, repository.NewRepository, repository.NewTransaction, repository.NewModelRepo, repository.NewProviderRepo, repository.NewUserRepository, repository.NewApiKeyRepository, repository.NewRequestLogRepository)
+var repositorySet = wire.NewSet(repository.NewDB, repository.NewRepository, repository.NewTransaction, repository.NewChannelRepository, repository.NewChannelModelRepository, repository.NewUserRepository, repository.NewApiKeyRepository, repository.NewRequestLogRepository)
 
-var serviceSet = wire.NewSet(service.NewService, service.NewOaiService, service.NewChannelService, service.NewLoadBalanceService, service.NewRequestLogService, service.NewApiKeyService, service.NewUserService, service.NewAuthService, oauth2.NewService, oauth2.NewLinuxDoService)
+var serviceSet = wire.NewSet(service.NewService, service.NewOaiService, service.NewChannelService, service.NewLoadBalanceServiceBeta, service.NewRequestLogService, service.NewApiKeyService, service.NewUserService, service.NewAuthService, oauth2.NewService, oauth2.NewLinuxDoService)
 
 var handlerSet = wire.NewSet(handler.NewHandler, handler.NewOAIHandler, handler.NewOAuth2Handler, handler.NewApiKeyHandler, handler.NewAuthHandler, handler.NewRequestLogHandler, handler.NewUserHandler)
 

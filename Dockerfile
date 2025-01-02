@@ -41,7 +41,6 @@ COPY --from=builder /app/server .
 RUN chmod +x ./server
 
 # 设置环境变量（如果需要）
-ENV TZ=Asia/Shanghai
 ENV GIN_MODE=release
 
 EXPOSE 8080

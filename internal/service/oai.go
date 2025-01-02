@@ -81,7 +81,7 @@ func NewOaiService(
 	return &oaiService{
 		Service:          svc,
 		load:             load,
-		N:                2,
+		N:                3,
 		reqLogSvc:        reqLogSvc,
 		channelModelRepo: channelModelRepo,
 	}
@@ -146,19 +146,29 @@ func (s *oaiService) FailCb(ctx context.Context, modelRecordId uint64) {
 
 func (s *oaiService) RelayRequest(ctx context.Context, req any, modelId string, relayType RelayType) (io.ReadCloser, http.Header, error) {
 	reqModelId := modelId
-	for _ = range s.N {
+	if reqModelId == "" {
+		return nil, nil, errors.New("modelId is empty")
+	}
+	logger := s.Logger.WithContext(ctx)
+	for i := range s.N {
+		zapLogger := logger.With(
+			zap.String("reqModelId", reqModelId),
+			zap.String("relayType", strconv.Itoa(int(relayType))),
+			zap.Int("loop_times", i),
+		)
 		conf, err := s.load.NextChannel(ctx, reqModelId)
 		if err != nil {
-			s.Logger.Warn("获取provider失败", zap.String("modelId", reqModelId), zap.Error(err))
+			zapLogger.Warn("获取provider失败", zap.Error(err))
 			continue
 		}
 		newProvider, err := NewOAIProvider(conf)
 		if err != nil {
-			s.Logger.Warn("创建provider失败", zap.String("modelId", reqModelId), zap.Error(err))
+			zapLogger.Warn("创建provider失败", zap.Error(err))
 			continue
 		}
 		resp, respHeader, err := s.DoRelayRequest(ctx, req, conf.ModelKey, relayType, newProvider)
 		if err == nil {
+			zapLogger.Info("获取response成功", zap.Error(err))
 			s.SuccessCb(ctx, conf.ModelRecordId)
 			s.GoLogReq(ctx, conf.ModelKey, 1)
 			return resp, respHeader, nil
@@ -289,7 +299,7 @@ func (s *oaiService) DoRelayRequest(ctx context.Context, reqBody any, modelId st
 	return nil, nil, errors.New("invalid relay type")
 }
 
-func (s *oaiService) ChatCompletions(ctx context.Context, req *adapterV1.ChatCompletionRequest) (io.ReadCloser, http.Header, error) {
+func (s *oaiService) ChatCompletions2Archive(ctx context.Context, req *adapterV1.ChatCompletionRequest) (io.ReadCloser, http.Header, error) {
 	reqModelId := req.Model
 	for _ = range s.N {
 		conf, err := s.load.NextChannel(ctx, reqModelId)
@@ -328,7 +338,7 @@ func (s *oaiService) ChatCompletions(ctx context.Context, req *adapterV1.ChatCom
 	return nil, nil, errors.New("no service available")
 }
 
-func (s *oaiService) ChatCompletionsByBytes(ctx context.Context, req []byte, modelId string) (io.ReadCloser, http.Header, error) {
+func (s *oaiService) ChatCompletionsByBytes2Archive(ctx context.Context, req []byte, modelId string) (io.ReadCloser, http.Header, error) {
 	for _ = range s.N {
 		conf, err := s.load.NextChannel(ctx, modelId)
 		if err != nil {
@@ -381,7 +391,7 @@ func (s *oaiService) Models(ctx context.Context) (*apiV1.ModelResponse, error) {
 	return resp, nil
 }
 
-func (s *oaiService) Completions(ctx context.Context, req *adapterV1.CompletionsRequest) (io.ReadCloser, http.Header, error) {
+func (s *oaiService) Completions2Archive(ctx context.Context, req *adapterV1.CompletionsRequest) (io.ReadCloser, http.Header, error) {
 	reqModelId := req.Model
 	for _ = range s.N {
 		conf, err := s.load.NextChannel(ctx, reqModelId)
@@ -406,7 +416,7 @@ func (s *oaiService) Completions(ctx context.Context, req *adapterV1.Completions
 	return nil, nil, errors.New("no service available")
 }
 
-func (s *oaiService) CompletionsByBytes(ctx context.Context, req []byte, modelId string) (io.ReadCloser, http.Header, error) {
+func (s *oaiService) CompletionsByBytes2Archive(ctx context.Context, req []byte, modelId string) (io.ReadCloser, http.Header, error) {
 	for _ = range s.N {
 		conf, err := s.load.NextChannel(ctx, modelId)
 		if err != nil {
@@ -430,7 +440,7 @@ func (s *oaiService) CompletionsByBytes(ctx context.Context, req []byte, modelId
 	return nil, nil, errors.New("no service available")
 }
 
-func (s *oaiService) Embeddings(ctx context.Context, req *adapterV1.EmbeddingRequest) (io.ReadCloser, http.Header, error) {
+func (s *oaiService) Embeddings2Archive(ctx context.Context, req *adapterV1.EmbeddingRequest) (io.ReadCloser, http.Header, error) {
 	reqModelId := req.Model
 	for _ = range s.N {
 		conf, err := s.load.NextChannel(ctx, reqModelId)
@@ -455,7 +465,7 @@ func (s *oaiService) Embeddings(ctx context.Context, req *adapterV1.EmbeddingReq
 	return nil, nil, errors.New("no service available")
 }
 
-func (s *oaiService) EmbeddingsByBytes(ctx context.Context, req []byte, modelId string) (io.ReadCloser, http.Header, error) {
+func (s *oaiService) EmbeddingsByBytes2Archive(ctx context.Context, req []byte, modelId string) (io.ReadCloser, http.Header, error) {
 	for _ = range s.N {
 		conf, err := s.load.NextChannel(ctx, modelId)
 		if err != nil {
@@ -478,7 +488,7 @@ func (s *oaiService) EmbeddingsByBytes(ctx context.Context, req []byte, modelId 
 	return nil, nil, errors.New("no service available")
 }
 
-func (s *oaiService) CreateSpeech(ctx context.Context, req *adapterV1.SpeechRequest) (io.ReadCloser, http.Header, error) {
+func (s *oaiService) CreateSpeech2Archive(ctx context.Context, req *adapterV1.SpeechRequest) (io.ReadCloser, http.Header, error) {
 	reqModelId := req.Model
 	for _ = range s.N {
 		conf, err := s.load.NextChannel(ctx, reqModelId)
@@ -503,7 +513,7 @@ func (s *oaiService) CreateSpeech(ctx context.Context, req *adapterV1.SpeechRequ
 	return nil, nil, errors.New("no service available")
 }
 
-func (s *oaiService) CreateSpeechByBytes(ctx context.Context, req []byte, modelId string) (io.ReadCloser, http.Header, error) {
+func (s *oaiService) CreateSpeechByBytes2Archive(ctx context.Context, req []byte, modelId string) (io.ReadCloser, http.Header, error) {
 	for _ = range s.N {
 		conf, err := s.load.NextChannel(ctx, modelId)
 		if err != nil {
@@ -526,7 +536,7 @@ func (s *oaiService) CreateSpeechByBytes(ctx context.Context, req []byte, modelI
 	return nil, nil, errors.New("no service available")
 }
 
-func (s *oaiService) Transcriptions(ctx context.Context, req *adapterV1.TranscriptionRequest) (io.ReadCloser, http.Header, error) {
+func (s *oaiService) Transcriptions2Archive(ctx context.Context, req *adapterV1.TranscriptionRequest) (io.ReadCloser, http.Header, error) {
 	reqModelId := req.Model
 	for _ = range s.N {
 		conf, err := s.load.NextChannel(ctx, reqModelId)
@@ -551,7 +561,7 @@ func (s *oaiService) Transcriptions(ctx context.Context, req *adapterV1.Transcri
 	return nil, nil, errors.New("no service available")
 }
 
-func (s *oaiService) Translations(ctx context.Context, req *adapterV1.TranslationRequest) (io.ReadCloser, http.Header, error) {
+func (s *oaiService) Translations2Archive(ctx context.Context, req *adapterV1.TranslationRequest) (io.ReadCloser, http.Header, error) {
 	reqModelId := req.Model
 	for _ = range s.N {
 		conf, err := s.load.NextChannel(ctx, reqModelId)
@@ -576,7 +586,7 @@ func (s *oaiService) Translations(ctx context.Context, req *adapterV1.Translatio
 	return nil, nil, errors.New("no service available")
 }
 
-func (s *oaiService) CreateImage(ctx context.Context, req *adapterV1.CreateImageRequest) (io.ReadCloser, http.Header, error) {
+func (s *oaiService) CreateImage2Archive(ctx context.Context, req *adapterV1.CreateImageRequest) (io.ReadCloser, http.Header, error) {
 	reqModelId := req.Model
 	for _ = range s.N {
 		conf, err := s.load.NextChannel(ctx, reqModelId)
@@ -601,7 +611,7 @@ func (s *oaiService) CreateImage(ctx context.Context, req *adapterV1.CreateImage
 	return nil, nil, errors.New("no service available")
 }
 
-func (s *oaiService) CreateImageByBytes(ctx context.Context, req []byte, modelId string) (io.ReadCloser, http.Header, error) {
+func (s *oaiService) CreateImageByBytes2Archive(ctx context.Context, req []byte, modelId string) (io.ReadCloser, http.Header, error) {
 	for _ = range s.N {
 		conf, err := s.load.NextChannel(ctx, modelId)
 		if err != nil {
@@ -624,7 +634,7 @@ func (s *oaiService) CreateImageByBytes(ctx context.Context, req []byte, modelId
 	return nil, nil, errors.New("no service available")
 }
 
-func (s *oaiService) CreateImageEdit(ctx context.Context, req *adapterV1.EditImageRequest) (io.ReadCloser, http.Header, error) {
+func (s *oaiService) CreateImageEdit2Archive(ctx context.Context, req *adapterV1.EditImageRequest) (io.ReadCloser, http.Header, error) {
 	reqModelId := req.Model
 	for _ = range s.N {
 		conf, err := s.load.NextChannel(ctx, reqModelId)
@@ -648,7 +658,7 @@ func (s *oaiService) CreateImageEdit(ctx context.Context, req *adapterV1.EditIma
 	return nil, nil, errors.New("no service available")
 }
 
-func (s *oaiService) ImageVariations(ctx context.Context, req *adapterV1.CreateImageVariationRequest) (io.ReadCloser, http.Header, error) {
+func (s *oaiService) ImageVariations2Archive(ctx context.Context, req *adapterV1.CreateImageVariationRequest) (io.ReadCloser, http.Header, error) {
 	reqModelId := req.Model
 	for _ = range s.N {
 		conf, err := s.load.NextChannel(ctx, reqModelId)
