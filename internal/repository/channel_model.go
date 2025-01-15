@@ -29,7 +29,7 @@ type ChannelModelRepository interface {
 	RestoreChannelModel(ctx context.Context) error
 	UpdateChannelModel(ctx context.Context, channelModel *model.ChannelModel) error
 	ResetChannelModels(ctx context.Context, channelId uint64, channelModels []*model.ChannelModel) error
-	UpdateChannelModelsStatus(ctx context.Context, channelId uint64, status int8) error
+	UpdateChannelModelsHardStatus(ctx context.Context, channelId uint64, status int8) error
 
 	DeleteChannelModelByID(ctx context.Context, id uint64) error
 	DeleteChannelModelByChannelId(ctx context.Context, channelId uint64) error
@@ -78,11 +78,11 @@ func (r *channelModelRepository) ExistsChannelModels(ctx context.Context, channe
 	return count > 0, nil
 }
 
-func (r *channelModelRepository) UpdateChannelModelsStatus(ctx context.Context, channelId uint64, status int8) error {
+func (r *channelModelRepository) UpdateChannelModelsHardStatus(ctx context.Context, channelId uint64, status int8) error {
 	if status < 0 || status > 2 {
 		return errors.New("invalid status")
 	}
-	return r.DB(ctx).Model(&model.ChannelModel{}).Where("channel_id = ?", channelId).Update("soft_limit", status).Error
+	return r.DB(ctx).Model(&model.ChannelModel{}).Where("channel_id = ?", channelId).Update("hard_limit", status).Error
 }
 
 func (r *channelModelRepository) FindCheckChannelModels(ctx context.Context, modelIds []string) ([]*model.ChannelModel, error) {
@@ -157,18 +157,18 @@ func (r *channelModelRepository) DeleteChannelModelById(ctx context.Context, cha
 }
 
 func (r *channelModelRepository) CreateChannelModel(ctx context.Context, channelModel *model.ChannelModel) error {
-	result, err := r.ExistsChannelModel(ctx, channelModel)
-	if err != nil {
-		return err
-	}
-	if result != nil {
-		return errors.New("channel model already exists")
-	}
-	// 硬删除
-	err = r.PermanentlyDeleteChannelModel(ctx, channelModel)
-	if err != nil {
-		return err
-	}
+	//result, err := r.ExistsChannelModel(ctx, channelModel)
+	//if err != nil {
+	//	return err
+	//}
+	//if result != nil {
+	//	return errors.New("channel model already exists")
+	//}
+	//// 硬删除
+	//err = r.PermanentlyDeleteChannelModel(ctx, channelModel)
+	//if err != nil {
+	//	return err
+	//}
 	return r.DB(ctx).Create(channelModel).Error
 }
 

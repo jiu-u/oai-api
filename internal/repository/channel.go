@@ -89,19 +89,19 @@ func (r *channelRepository) PermanentlyDeleteChannel(ctx context.Context, channe
 }
 
 func (r *channelRepository) CreateChannel(ctx context.Context, channel *model.Channel) error {
-	// 创建新的channel
-	exists, err := r.ExistsChannel(ctx, channel)
-	if err != nil {
-		return err
-	}
-	if exists {
-		return errors.New("channel already exists")
-	}
-	// 强制删除软删除记录
-	err = r.PermanentlyDeleteChannel(ctx, channel)
-	if err != nil {
-		return err
-	}
+	//// 创建新的channel
+	//exists, err := r.ExistsChannel(ctx, channel)
+	//if err != nil {
+	//	return err
+	//}
+	//if exists {
+	//	return errors.New("channel already exists")
+	//}
+	//// 强制删除软删除记录
+	//err = r.PermanentlyDeleteChannel(ctx, channel)
+	//if err != nil {
+	//	return err
+	//}
 	return r.DB(ctx).Create(channel).Error
 }
 

@@ -80,10 +80,10 @@ func generateVerificationCode() string {
 func main() {
 	// 邮件配置示例
 	config := EmailConfig{
-		Host:     "mail14.serv00.com", // 以163邮箱为例
+		Host:     "mail14", // 以163邮箱为例
 		Port:     587,
-		Username: "no-replay@mail.chat9.us.kg",
-		Password: "7uTumKcmVHQPTYaJH9", // 使用邮箱的授权码
+		Username: "example@mail.com",
+		Password: "examplePassword", // 使用邮箱的授权码
 	}
 
 	// 发送验证码

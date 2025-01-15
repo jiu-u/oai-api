@@ -163,13 +163,12 @@ func (s *channelService) UpdateChannel(ctx context.Context, channelId uint64, re
 	var channelX *model.Channel
 	err = s.Tm.Transaction(ctx, func(ctx context.Context) error {
 		channelX = &model.Channel{
-			BaseModel: model.BaseModel{},
-			Name:      req.Name,
-			Type:      req.Type,
-			EndPoint:  req.EndPoint,
-			APIKey:    req.APIKey,
-			Status:    req.Status,
-			Models:    nil,
+			Name:     req.Name,
+			Type:     req.Type,
+			EndPoint: req.EndPoint,
+			APIKey:   req.APIKey,
+			Status:   req.Status,
+			Models:   nil,
 		}
 		channelX.Id = channelId
 		err = s.repo.UpdateChannel(ctx, channelX)
@@ -196,7 +195,7 @@ func (s *channelService) UpdateChannel(ctx context.Context, channelId uint64, re
 			}
 		}
 		if req.Status > 0 && req.Status < 3 {
-			err = s.channelModelRepo.UpdateChannelModelsStatus(ctx, channelId, req.Status)
+			err = s.channelModelRepo.UpdateChannelModelsHardStatus(ctx, channelId, req.Status)
 			if err != nil {
 				return err
 			}
