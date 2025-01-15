@@ -3,51 +3,15 @@ package main
 import (
 	"crypto/rand"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
+	"github.com/jiu-u/oai-api/pkg/sid"
 	"strings"
 )
 
-type (
-	OAIRequest struct {
-		Model    string    `json:"model"`
-		Stream   bool      `json:"stream"`
-		Messages []Message `json:"messages"`
-	}
-	Message struct {
-		Role    string          `json:"role"`
-		Content json.RawMessage `json:"content"`
-	}
-	StringContent = string
-	MediaContent  struct {
-		Type       string `json:"type"`
-		Text       string `json:"text,omitempty"`
-		ImageUrl   any    `json:"image_url,omitempty"`
-		InputAudio any    `json:"input_audio,omitempty"`
-	}
-	MessageImageUrl struct {
-		Url    string `json:"url"`
-		Detail string `json:"detail"`
-	}
-	MessageInputAudio struct {
-		Data   string `json:"data"` //base64
-		Format string `json:"format"`
-	}
-)
-
 func main() {
-	req := OAIRequest{
-		Model: "gpt-3.5-turbo",
-		Messages: []Message{
-			{Role: "user", Content: json.RawMessage(`"你好"`)},
-			{Role: "assistant", Content: json.RawMessage(`"你好"`)},
-		},
-	}
-	str, err := json.Marshal(req)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(string(str))
+	sid := sid.NewSid()
+	fmt.Println(sid.GenUint64())
+
 }
 
 func GenerateOpenAIKey() string {

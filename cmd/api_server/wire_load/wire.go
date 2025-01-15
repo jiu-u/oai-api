@@ -28,6 +28,7 @@ var serviceSet = wire.NewSet(
 	service.NewService,
 	service.NewOaiService,
 	service.NewChannelService,
+	service.NewLoadBalanceServiceBeta,
 )
 
 var handlerSet = wire.NewSet(

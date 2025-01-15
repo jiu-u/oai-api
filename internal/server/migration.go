@@ -29,6 +29,9 @@ func (m *Migrate) Start(ctx context.Context) error {
 		new(model.User),
 		new(model.ApiKey),
 		new(model.RequestLog),
+		new(model.SystemConfig),
+		new(model.AsyncTask),
+		new(model.UserAuthProvider),
 	); err != nil {
 		m.logger.Error("AutoMigrate error", zap.Error(err))
 		return err

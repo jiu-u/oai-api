@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"github.com/gin-gonic/gin"
 	apiV1 "github.com/jiu-u/oai-api/api/v1"
 	"github.com/jiu-u/oai-api/internal/service"
@@ -21,24 +22,64 @@ func NewRequestLogHandler(handler *Handler, svc service.RequestLogService) *Requ
 }
 
 func (h *RequestLogHandler) GetRequestLogs(ctx *gin.Context) {
-	resp, err := h.svc.GetRealTimeData(ctx, h.limit)
-	if err != nil {
-		ctx.JSON(400, gin.H{"error": err.Error()})
+	req := new(apiV1.RequestLogsQuery)
+	if err := ctx.ShouldBind(req); err != nil {
+		apiV1.HandleError(ctx, 400, apiV1.ErrBadRequest, err.Error())
 		return
 	}
-	ctx.JSON(200, resp)
+
+	resp, err := h.svc.GetRequestLogs(ctx, req)
+	if err != nil {
+		apiV1.HandleError(ctx, 400, err, err.Error())
+		return
+	}
+	apiV1.HandleSuccess(ctx, resp)
 }
 
-func (h *RequestLogHandler) GetRequestLogRanking(ctx *gin.Context) {
-	req := new(apiV1.RequestLogRanking)
+func (h *RequestLogHandler) GetUserRequestLogs(ctx *gin.Context) {
+	req := new(apiV1.RequestLogsQuery)
 	if err := ctx.ShouldBind(req); err != nil {
-		ctx.JSON(400, gin.H{"error": err.Error()})
+		apiV1.HandleError(ctx, 400, apiV1.ErrBadRequest, err.Error())
 		return
 	}
-	resp, err := h.svc.GetStatisticsData(ctx, req)
+	userId := ctx.Param("userId")
+	if userId == "" {
+		apiV1.HandleError(ctx, 400, errors.New("userId is required"), "userId is required")
+		return
+	}
+	req.UserId = userId
+	resp, err := h.svc.GetRequestLogs(ctx, req)
 	if err != nil {
-		ctx.JSON(400, gin.H{"error": err.Error()})
+		apiV1.HandleError(ctx, 400, err, err.Error())
 		return
 	}
-	ctx.JSON(200, resp)
+	apiV1.HandleSuccess(ctx, resp)
+}
+
+func (h *RequestLogHandler) GetRequestLogsModelRanking(ctx *gin.Context) {
+	req := new(apiV1.RequestLogsRankingRequest)
+	if err := ctx.ShouldBind(req); err != nil {
+		apiV1.HandleError(ctx, 400, err, err.Error())
+		return
+	}
+	resp, err := h.svc.GetRequestLogsModelRanking(ctx, req)
+	if err != nil {
+		apiV1.HandleError(ctx, 400, err, err.Error())
+		return
+	}
+	apiV1.HandleSuccess(ctx, resp)
+}
+
+func (h *RequestLogHandler) GetRequestLogsUserRanking(ctx *gin.Context) {
+	req := new(apiV1.RequestLogsRankingRequest)
+	if err := ctx.ShouldBind(req); err != nil {
+		apiV1.HandleError(ctx, 400, apiV1.ErrBadRequest, err.Error())
+		return
+	}
+	resp, err := h.svc.GetRequestLogsUserRanking(ctx, req)
+	if err != nil {
+		apiV1.HandleError(ctx, 400, err, err.Error())
+		return
+	}
+	apiV1.HandleSuccess(ctx, resp)
 }

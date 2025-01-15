@@ -2,6 +2,7 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
+	v1 "github.com/jiu-u/oai-api/api/v1"
 	"github.com/jiu-u/oai-api/internal/service"
 )
 
@@ -17,12 +18,12 @@ func NewUserHandler(handler *Handler, svc service.UserService) *UserHandler {
 	}
 }
 
-func (h *UserHandler) GetUser(ctx *gin.Context) {
+func (h *UserHandler) GetCurrentUser(ctx *gin.Context) {
 	userId := GetUserIdFromCtx(ctx)
 	resp, err := h.svc.GetUserInfo(ctx, userId)
 	if err != nil {
-		ctx.JSON(400, gin.H{"error": err.Error()})
+		v1.HandleError(ctx, 400, err, err.Error())
 		return
 	}
-	ctx.JSON(200, resp)
+	v1.HandleSuccess(ctx, resp)
 }

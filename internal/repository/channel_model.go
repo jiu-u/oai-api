@@ -14,6 +14,7 @@ type ChannelModelRepository interface {
 	CreateChannelModel(ctx context.Context, channelModel *model.ChannelModel) error
 	CreateChannelModelBatch(ctx context.Context, channelModels []*model.ChannelModel) error
 	CreateChannelModelIfNotExists(ctx context.Context, channel *model.ChannelModel) error
+	ExistsChannelModel(ctx context.Context, channelModel *model.ChannelModel) (*model.ChannelModel, error)
 
 	FindChannelModelById(ctx context.Context, id uint64) (*model.ChannelModel, error)
 	FindChannelModelByIdForUpdate(ctx context.Context, id uint64) (*model.ChannelModel, error)
@@ -27,9 +28,12 @@ type ChannelModelRepository interface {
 	DecrChannelModelWeight(ctx context.Context, id uint64) error
 	RestoreChannelModel(ctx context.Context) error
 	UpdateChannelModel(ctx context.Context, channelModel *model.ChannelModel) error
+	ResetChannelModels(ctx context.Context, channelId uint64, channelModels []*model.ChannelModel) error
+	UpdateChannelModelsStatus(ctx context.Context, channelId uint64, status int8) error
 
 	DeleteChannelModelByID(ctx context.Context, id uint64) error
 	DeleteChannelModelByChannelId(ctx context.Context, channelId uint64) error
+	PermanentlyDeleteChannelModel(ctx context.Context, channelModel *model.ChannelModel) error
 }
 
 func NewChannelModelRepository(repo *Repository) ChannelModelRepository {
@@ -44,6 +48,41 @@ type channelModelRepository struct {
 	*Repository
 	MaxErrorCount int
 	MaxWeight     int
+}
+
+func (r *channelModelRepository) PermanentlyDeleteChannelModel(ctx context.Context, channelModel *model.ChannelModel) error {
+	if channelModel.Id > 0 {
+		return r.DB(ctx).Unscoped().Where("id = ?", channelModel.Id).Delete(&model.ChannelModel{}).Error
+	}
+	return r.DB(ctx).Unscoped().Where("model_key = ? and channel_id = ?", channelModel.ModelKey, channelModel.ChannelId).Delete(&model.ChannelModel{}).Error
+}
+
+func (r *channelModelRepository) ExistsChannelModel(ctx context.Context, channelModel *model.ChannelModel) (*model.ChannelModel, error) {
+	var temp model.ChannelModel
+	var err error
+	err = r.DB(ctx).Model(&model.ChannelModel{}).Where("model_key = ? and channel_id = ?", channelModel.ModelKey, channelModel.ChannelId).First(&temp).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("error fetching channel model: %w", err)
+	}
+	return &temp, nil
+}
+func (r *channelModelRepository) ExistsChannelModels(ctx context.Context, channelModel *model.ChannelModel) (bool, error) {
+	var count int64
+	err := r.DB(ctx).Model(&model.ChannelModel{}).Where("model_key = ? and channel_id = ?", channelModel.ModelKey, channelModel.ChannelId).Count(&count).Error
+	if err != nil {
+		return false, fmt.Errorf("error counting channel model: %w", err)
+	}
+	return count > 0, nil
+}
+
+func (r *channelModelRepository) UpdateChannelModelsStatus(ctx context.Context, channelId uint64, status int8) error {
+	if status < 0 || status > 2 {
+		return errors.New("invalid status")
+	}
+	return r.DB(ctx).Model(&model.ChannelModel{}).Where("channel_id = ?", channelId).Update("soft_limit", status).Error
 }
 
 func (r *channelModelRepository) FindCheckChannelModels(ctx context.Context, modelIds []string) ([]*model.ChannelModel, error) {
@@ -66,6 +105,17 @@ func (r *channelModelRepository) RestoreChannelModel(ctx context.Context) error 
 
 func (r *channelModelRepository) UpdateChannelModel(ctx context.Context, channelModel *model.ChannelModel) error {
 	return r.DB(ctx).Updates(channelModel).Error
+}
+
+func (r *channelModelRepository) ResetChannelModels(ctx context.Context, channelId uint64, channelModels []*model.ChannelModel) error {
+	// 删除所有的channelModel
+	err := r.DB(ctx).Unscoped().Where("channel_id = ?", channelId).Delete(&model.ChannelModel{}).Error
+	if err != nil {
+		return err
+	}
+	// 插入新的channelModel
+	err = r.DB(ctx).Create(channelModels).Error
+	return err
 }
 
 func (r *channelModelRepository) DeleteChannelModelByChannelId(ctx context.Context, channelId uint64) error {
@@ -107,6 +157,18 @@ func (r *channelModelRepository) DeleteChannelModelById(ctx context.Context, cha
 }
 
 func (r *channelModelRepository) CreateChannelModel(ctx context.Context, channelModel *model.ChannelModel) error {
+	result, err := r.ExistsChannelModel(ctx, channelModel)
+	if err != nil {
+		return err
+	}
+	if result != nil {
+		return errors.New("channel model already exists")
+	}
+	// 硬删除
+	err = r.PermanentlyDeleteChannelModel(ctx, channelModel)
+	if err != nil {
+		return err
+	}
 	return r.DB(ctx).Create(channelModel).Error
 }
 
@@ -133,7 +195,7 @@ func (r *channelModelRepository) FindChannelModelById(ctx context.Context, id ui
 	err := r.DB(ctx).First(&channelModel, id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("channel channelModel with ID %d not found", id)
+			return nil, fmt.Errorf("channel channelModel with Id %d not found", id)
 		}
 		return nil, fmt.Errorf("error fetching channel channelModel: %w", err)
 	}
@@ -146,7 +208,7 @@ func (r *channelModelRepository) FindChannelModelByIdForUpdate(ctx context.Conte
 	err := r.DB(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).First(&channelModel, id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("channel channelModel with ID %d not found", id)
+			return nil, fmt.Errorf("channel channelModel with Id %d not found", id)
 		}
 		return nil, fmt.Errorf("error fetching channel channelModel: %w", err)
 	}
@@ -158,7 +220,7 @@ func (r *channelModelRepository) FindChannelModelByIdForShare(ctx context.Contex
 	err := r.DB(ctx).Clauses(clause.Locking{Strength: "SHARE"}).First(&channelModel, id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("channel channelModel with ID %d not found", id)
+			return nil, fmt.Errorf("channel channelModel with Id %d not found", id)
 		}
 		return nil, fmt.Errorf("error fetching channel channelModel: %w", err)
 	}
@@ -195,7 +257,7 @@ func (r *channelModelRepository) DecrChannelModelWeight(ctx context.Context, id 
 			"error_count":     gorm.Expr("CASE WHEN error_count < ? THEN error_count + 1 ELSE error_count END", r.MaxErrorCount),
 			"weight":          gorm.Expr("CASE WHEN weight > 0 THEN weight - 1 ELSE weight END"),
 			"last_check_time": time.Now(),
-			"soft_limit":      gorm.Expr("CASE WHEN error_count > ? THEN 2 ELSE 1 END", r.MaxErrorCount),
+			"soft_limit":      gorm.Expr("CASE WHEN error_count >= ? THEN 2 ELSE 1 END", r.MaxErrorCount-1),
 		}).Error
 	if err != nil {
 		return err

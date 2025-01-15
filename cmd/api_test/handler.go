@@ -182,7 +182,7 @@ func (h *OpenAIHandler) ChatCompletions(ctx *gin.Context) {
 	//for k, v := range respHeader {
 	//	ctx.Writer.Header().Set(k, v[0])
 	//}
-	//ctx.Data(http.StatusOK, "application/json", respBytes)
+	//ctx.List(http.StatusOK, "application/json", respBytes)
 }
 
 func (h *OpenAIHandler) ChatCompletionsByBytes(ctx *gin.Context) {

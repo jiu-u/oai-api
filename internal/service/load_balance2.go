@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"github.com/jiu-u/oai-api/internal/dto"
 	"github.com/jiu-u/oai-api/internal/model"
 	"github.com/jiu-u/oai-api/internal/repository"
 	"go.uber.org/zap"
@@ -11,22 +12,10 @@ import (
 	"time"
 )
 
-type ChannelModelConf struct {
-	ChannelId       uint64
-	ChannelName     string
-	ChannelType     string
-	ChannelKey      string
-	ChannelEndPoint string
-	ModelRecordId   uint64
-	ModelKey        string
-	ModelId         string
-	Weight          int
-}
-
 type LoadBalanceServiceBeta interface {
 	AddChannel(ctx context.Context, channel *model.Channel) error
 	RemoveChannel(ctx context.Context, id uint64) error
-	NextChannel(ctx context.Context, modelId string) (*ChannelModelConf, error)
+	NextChannel(ctx context.Context, modelId string) (*dto.ChannelModelConf, error)
 	SuccessCb(ctx context.Context, modelRecordId uint64) error
 	FailCb(ctx context.Context, modelRecordId uint64) error
 	ChangeModelMapping(ctx context.Context, modelMapping map[string][]string)
@@ -86,7 +75,7 @@ func (s *loadBalanceServiceBeta) loadProviderData() {
 	s.ChannelMap = mp
 }
 
-func (s *loadBalanceServiceBeta) NextChannel(ctx context.Context, modelId string) (*ChannelModelConf, error) {
+func (s *loadBalanceServiceBeta) NextChannel(ctx context.Context, modelId string) (*dto.ChannelModelConf, error) {
 	s.once.Do(s.loadProviderData)
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -117,7 +106,10 @@ func (s *loadBalanceServiceBeta) NextChannel(ctx context.Context, modelId string
 	}
 	selected := result[idx]
 	channel := s.ChannelMap[selected.ChannelId]
-	return &ChannelModelConf{
+	if channel == nil {
+		return nil, errors.New("channel is nil")
+	}
+	return &dto.ChannelModelConf{
 		ChannelId:       selected.ChannelId,
 		ChannelName:     channel.Name,
 		ChannelType:     channel.Type,

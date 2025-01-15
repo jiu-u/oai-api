@@ -25,12 +25,16 @@ func NewDB(cfg *config.Config) *gorm.DB {
 	// GORM doc: https://gorm.io/docs/connecting_to_the_database.html
 	switch driver {
 	case "mysql":
-		db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
+		db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
+			DisableForeignKeyConstraintWhenMigrating: true,
+		})
 	case "postgres":
 		db, err = gorm.Open(postgres.New(postgres.Config{
 			DSN:                  dsn,
 			PreferSimpleProtocol: true, // disables implicit prepared statement usage
-		}), &gorm.Config{})
+		}), &gorm.Config{
+			DisableForeignKeyConstraintWhenMigrating: true,
+		})
 	case "sqlite":
 		_, err := os.Stat("./data/db/oai.db")
 		if err != nil {
@@ -46,7 +50,9 @@ func NewDB(cfg *config.Config) *gorm.DB {
 				f.Close()
 			}
 		}
-		db, err = gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+		db, err = gorm.Open(sqlite.Open(dsn), &gorm.Config{
+			DisableForeignKeyConstraintWhenMigrating: true,
+		})
 	default:
 		panic("unknown db driver")
 	}

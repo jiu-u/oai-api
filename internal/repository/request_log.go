@@ -2,8 +2,8 @@ package repository
 
 import (
 	"context"
+	apiV1 "github.com/jiu-u/oai-api/api/v1"
 	"github.com/jiu-u/oai-api/internal/model"
-	"time"
 )
 
 type RequestLogStatisticsQuery struct {
@@ -19,10 +19,10 @@ type UserCallCount struct {
 }
 
 type RequestLogRepository interface {
-	InsertOne(ctx context.Context, log *model.RequestLog) error
-	GetStatistics(ctx context.Context, query *RequestLogStatisticsQuery) ([]UserCallCount, error)
-	GetNewRequestLogs(ctx context.Context, limit int) ([]*model.RequestLog, error)
-	QueryItemByApiKey(ctx context.Context, apiKey string) (*model.RequestLog, error)
+	CreateRequestLog(ctx context.Context, log *model.RequestLog) error
+	FindRequestLogs(ctx context.Context, req *apiV1.RequestLogsQuery) ([]*model.RequestLog, int64, error)
+	FindRequestLogsModelRanking(ctx context.Context, req *apiV1.RequestLogsRankingRequest) ([]*apiV1.RequestLogsModelRanking, error)
+	FindRequestLogsUserRanking(ctx context.Context, req *apiV1.RequestLogsRankingRequest) ([]*apiV1.RequestLogsUserRanking, error)
 }
 
 func NewRequestLogRepository(repo *Repository) RequestLogRepository {
@@ -33,39 +33,56 @@ type requestLogRepository struct {
 	*Repository
 }
 
-func (r *requestLogRepository) QueryItemByApiKey(ctx context.Context, apiKey string) (*model.RequestLog, error) {
-	var log model.RequestLog
-	err := r.DB(ctx).Where("api_key = ?", apiKey).First(&log).Error
-	return &log, err
-}
-
-func (r *requestLogRepository) GetNewRequestLogs(ctx context.Context, limit int) ([]*model.RequestLog, error) {
-	var logs []*model.RequestLog
-	err := r.DB(ctx).Limit(limit).Order("created_at desc").Find(&logs).Error
-	return logs, err
-}
-
-func (r *requestLogRepository) InsertOne(ctx context.Context, log *model.RequestLog) error {
+func (r *requestLogRepository) CreateRequestLog(ctx context.Context, log *model.RequestLog) error {
 	return r.DB(ctx).Create(log).Error
 }
 
-func (r *requestLogRepository) GetStatistics(ctx context.Context, query *RequestLogStatisticsQuery) ([]UserCallCount, error) {
-	// 解析时间
-	startTime, err := time.ParseInLocation("2006-01-02 15:04:05", query.StartTime, time.Local)
-	if err != nil {
-		panic("invalid start time format")
+func (r *requestLogRepository) FindRequestLogs(ctx context.Context, req *apiV1.RequestLogsQuery) ([]*model.RequestLog, int64, error) {
+	var logs []*model.RequestLog
+	var err error
+	query := r.DB(ctx).Model(&model.RequestLog{})
+	if req.StartTime != "" && req.EndTime != "" {
+		query = query.Where("created_at BETWEEN ? AND ?", req.StartTime, req.EndTime)
 	}
-	endTime, err := time.ParseInLocation("2006-01-02 15:04:05", query.EndTime, time.Local)
-	if err != nil {
-		panic("invalid end time format")
+	if req.UserId != "" {
+		query = query.Where("user_id = ?", req.UserId)
 	}
-	// 查询用户调用排行榜单
-	var userCallCounts []UserCallCount
-	err = r.DB(ctx).Model(&model.RequestLog{}).
-		Select("user_id, username, count(*) as call_count").
-		Where("created_at BETWEEN ? AND ?", startTime, endTime).
-		Group("user_id, username").
-		Order("call_count DESC").
-		Find(&userCallCounts).Error
-	return userCallCounts, err
+	var total int64
+	err = query.Count(&total).Error
+	if err != nil {
+		return nil, 0, err
+	}
+	if req.Page > 0 && req.PageSize > 0 {
+		query = query.Offset((req.Page - 1) * req.PageSize).Limit(req.PageSize).Order("id desc")
+	}
+	err = query.Find(&logs).Error
+	return logs, total, err
+}
+
+func (r *requestLogRepository) FindRequestLogsModelRanking(ctx context.Context, req *apiV1.RequestLogsRankingRequest) ([]*apiV1.RequestLogsModelRanking, error) {
+	var logs []*apiV1.RequestLogsModelRanking
+	q := r.DB(ctx).Model(&model.RequestLog{})
+	if req.StartTime != "" && req.EndTime != "" {
+		q = q.Where("created_at BETWEEN ? AND ?", req.StartTime, req.EndTime)
+	}
+	q = q.Select("model, count(*) as call_count").Group("model").Order("call_count DESC")
+	if req.Limit > 0 {
+		q = q.Limit(req.Limit)
+	}
+	err := q.Find(&logs).Error
+	return logs, err
+}
+
+func (r *requestLogRepository) FindRequestLogsUserRanking(ctx context.Context, req *apiV1.RequestLogsRankingRequest) ([]*apiV1.RequestLogsUserRanking, error) {
+	var logs []*apiV1.RequestLogsUserRanking
+	q := r.DB(ctx).Model(&model.RequestLog{})
+	if req.StartTime != "" && req.EndTime != "" {
+		q = q.Where("created_at BETWEEN ? AND ?", req.StartTime, req.EndTime)
+	}
+	q = q.Select("user_id, username, count(*) as call_count").Group("user_id, username").Order("call_count DESC")
+	if req.Limit > 0 {
+		q = q.Limit(req.Limit)
+	}
+	err := q.Find(&logs).Error
+	return logs, err
 }

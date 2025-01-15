@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	adapterApi "github.com/jiu-u/oai-adapter/api"
 	apiV1 "github.com/jiu-u/oai-api/api/v1"
 	"github.com/jiu-u/oai-api/internal/service"
-	v1 "github.com/jiu-u/oai-api/pkg/adapter/api/v1"
 	"io"
 	"net/http"
 )
@@ -25,7 +25,7 @@ func NewOAIHandler(oaiService service.OaiService) *OAIHandler {
 var defaultRespHandle = HandleOAIResponse2
 
 func (h *OAIHandler) ChatCompletions(ctx *gin.Context) {
-	var req v1.ChatCompletionRequest
+	var req adapterApi.ChatRequest
 	if err := ctx.ShouldBind(&req); err != nil {
 		ctx.JSON(400, gin.H{"error": err.Error()})
 		return
@@ -59,7 +59,7 @@ func (h *OAIHandler) ChatCompletionsByBytes(ctx *gin.Context) {
 }
 
 func (h *OAIHandler) Completions(ctx *gin.Context) {
-	var req v1.CompletionsRequest
+	var req adapterApi.CompletionsRequest
 	if err := ctx.ShouldBind(&req); err != nil {
 		ctx.JSON(400, gin.H{"error": err.Error()})
 		return
@@ -103,7 +103,7 @@ func (h *OAIHandler) Models(ctx *gin.Context) {
 }
 
 func (h *OAIHandler) Embeddings(ctx *gin.Context) {
-	var req v1.EmbeddingRequest
+	var req adapterApi.EmbeddingRequest
 	if err := ctx.ShouldBind(&req); err != nil {
 		ctx.JSON(400, gin.H{"error": err.Error()})
 		return
@@ -137,7 +137,7 @@ func (h *OAIHandler) EmbeddingsByBytes(ctx *gin.Context) {
 }
 
 func (h *OAIHandler) AudioSpeech(ctx *gin.Context) {
-	var req v1.SpeechRequest
+	var req adapterApi.SpeechRequest
 	if err := ctx.ShouldBind(&req); err != nil {
 		ctx.JSON(400, gin.H{"error": err.Error()})
 		return
@@ -171,7 +171,7 @@ func (h *OAIHandler) AudioSpeechByBytes(ctx *gin.Context) {
 }
 
 func (h *OAIHandler) AudioTranscription(ctx *gin.Context) {
-	var req v1.TranscriptionRequest
+	var req adapterApi.TranscriptionRequest
 	if err := ctx.ShouldBind(&req); err != nil {
 		ctx.JSON(400, gin.H{"error": err.Error()})
 		return
@@ -186,7 +186,7 @@ func (h *OAIHandler) AudioTranscription(ctx *gin.Context) {
 }
 
 func (h *OAIHandler) AudioTranslation(ctx *gin.Context) {
-	var req v1.TranslationRequest
+	var req adapterApi.TranslationRequest
 	if err := ctx.ShouldBind(&req); err != nil {
 		ctx.JSON(400, gin.H{"error": err.Error()})
 		return
@@ -200,7 +200,7 @@ func (h *OAIHandler) AudioTranslation(ctx *gin.Context) {
 }
 
 func (h *OAIHandler) ImageGeneration(ctx *gin.Context) {
-	var req v1.CreateImageRequest
+	var req adapterApi.CreateImageRequest
 	if err := ctx.ShouldBind(&req); err != nil {
 		ctx.JSON(400, gin.H{"error": err.Error()})
 		return
@@ -235,7 +235,7 @@ func (h *OAIHandler) ImageGenerationByBytes(ctx *gin.Context) {
 }
 
 func (h *OAIHandler) ImageEdit(ctx *gin.Context) {
-	var req v1.EditImageRequest
+	var req adapterApi.EditImageRequest
 	if err := ctx.ShouldBind(&req); err != nil {
 		ctx.JSON(400, gin.H{"error": err.Error()})
 		return
@@ -249,7 +249,7 @@ func (h *OAIHandler) ImageEdit(ctx *gin.Context) {
 }
 
 func (h *OAIHandler) ImageVariation(ctx *gin.Context) {
-	var req v1.CreateImageVariationRequest
+	var req adapterApi.CreateImageVariationRequest
 	if err := ctx.ShouldBind(&req); err != nil {
 		ctx.JSON(400, gin.H{"error": err.Error()})
 		return

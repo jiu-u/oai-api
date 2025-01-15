@@ -40,13 +40,12 @@ var serviceSet = wire.NewSet(
 	service.NewUserService,
 	service.NewAuthService,
 	oauth2.NewService,
-	oauth2.NewLinuxDoService,
+	oauth2.NewLinuxDoAuthService,
 )
 
 var handlerSet = wire.NewSet(
 	handler.NewHandler,
 	handler.NewOAIHandler,
-	handler.NewOAuth2Handler,
 	handler.NewApiKeyHandler,
 	handler.NewAuthHandler,
 	handler.NewRequestLogHandler,

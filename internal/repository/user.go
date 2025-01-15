@@ -5,13 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jiu-u/oai-api/internal/model"
+	"github.com/jiu-u/oai-api/pkg/vaild"
 	"gorm.io/gorm"
 )
 
 type UserRepository interface {
-	InsertOne(ctx context.Context, user *model.User) error
-	FindOneByLinuxDoId(ctx context.Context, linuxDoId uint64) (*model.User, error)
-	FindOne(ctx context.Context, id uint64) (*model.User, error)
+	CreateUser(ctx context.Context, user *model.User) error
+	FindUserByEmail(ctx context.Context, email string) (*model.User, error)
+	FindUserByUsername(ctx context.Context, username string) (*model.User, error)
+	FindUserById(ctx context.Context, id uint64) (*model.User, error)
 	FindOneForUpdate(ctx context.Context, id uint64) (*model.User, error)
 	UpdateOne(ctx context.Context, user *model.User) error
 	//FindAll(ctx context.Context) ([]*model.User, error)
@@ -25,24 +27,43 @@ type userRepo struct {
 	*Repository
 }
 
+func (r *userRepo) CreateUser(ctx context.Context, user *model.User) error {
+	if !vaild.IsValidUsername(user.Username) {
+		return errors.New("invalid username")
+	}
+	return r.DB(ctx).Create(user).Error
+}
+
+func (r *userRepo) FindUserByEmail(ctx context.Context, email string) (*model.User, error) {
+	var user model.User
+	err := r.DB(ctx).Where("email = ?", email).First(&user).Error
+	return &user, err
+}
+
+func (r *userRepo) FindUserByUsername(ctx context.Context, username string) (*model.User, error) {
+	var user model.User
+	err := r.DB(ctx).Where("username = ?", username).First(&user).Error
+	return &user, err
+}
+
 func (r *userRepo) FindOneForUpdate(ctx context.Context, id uint64) (*model.User, error) {
 	var user model.User
 	err := r.DB(ctx).Set("gorm:query_option", "FOR UPDATE").First(&user, id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("user with ID %d not found", id)
+			return nil, fmt.Errorf("user with Id %d not found", id)
 		}
 		return nil, fmt.Errorf("error fetching user: %w", err)
 	}
 	return &user, nil
 }
 
-func (r *userRepo) FindOne(ctx context.Context, id uint64) (*model.User, error) {
+func (r *userRepo) FindUserById(ctx context.Context, id uint64) (*model.User, error) {
 	var user model.User
 	err := r.DB(ctx).First(&user, id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("user with ID %d not found", id)
+			return nil, fmt.Errorf("user with Id %d not found", id)
 		}
 		return nil, fmt.Errorf("error fetching user: %w", err)
 	}
@@ -50,18 +71,8 @@ func (r *userRepo) FindOne(ctx context.Context, id uint64) (*model.User, error) 
 }
 
 func (r *userRepo) UpdateOne(ctx context.Context, user *model.User) error {
-	return r.DB(ctx).Updates(user).Error
-}
-
-func (r *userRepo) InsertOne(ctx context.Context, user *model.User) error {
-	return r.DB(ctx).Create(user).Error
-}
-
-func (r *userRepo) FindOneByLinuxDoId(ctx context.Context, linuxDoId uint64) (*model.User, error) {
-	var user model.User
-	err := r.DB(ctx).Where("linux_do_id = ?", linuxDoId).First(&user).Error
-	if err != nil {
-		return nil, fmt.Errorf("error fetching user: %w", err)
+	if !vaild.IsValidUsername(user.Username) {
+		return errors.New("invalid username")
 	}
-	return &user, nil
+	return r.DB(ctx).Updates(user).Error
 }

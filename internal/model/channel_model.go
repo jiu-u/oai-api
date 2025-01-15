@@ -4,8 +4,8 @@ import "time"
 
 type ChannelModel struct {
 	BaseModel
-	ChannelId     uint64    `gorm:"unique_index:channel_model_key;comment:渠道ID"`
-	ModelKey      string    `gorm:"unique_index:channel_model_key;size:100;comment:模型key"`
+	ChannelId     uint64    `gorm:"uniqueIndex:channel_model_key;comment:渠道ID"`
+	ModelKey      string    `gorm:"uniqueIndex:channel_model_key;size:100;comment:模型key"`
 	SoftLimit     int8      `gorm:"default:1;index;comment:软限制,1启用,2禁用"`
 	HardLimit     int8      `gorm:"default:1;index;comment:硬限制,1启用,2禁用"`
 	Weight        int       `gorm:"default:1;comment:权重"`

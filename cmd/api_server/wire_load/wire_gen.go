@@ -31,7 +31,8 @@ func NewWire(cfg *config.Config, logger *log.Logger) (*server.DataLoadTask, func
 	serviceService := service.NewService(sidSid, transaction, logger, jwtJWT, cacheCache)
 	channelRepository := repository.NewChannelRepository(repositoryRepository)
 	channelModelRepository := repository.NewChannelModelRepository(repositoryRepository)
-	channelService := service.NewChannelService(serviceService, channelRepository, channelModelRepository)
+	loadBalanceServiceBeta := service.NewLoadBalanceServiceBeta(serviceService, channelRepository, channelModelRepository)
+	channelService := service.NewChannelService(serviceService, channelRepository, channelModelRepository, loadBalanceServiceBeta)
 	dataLoadTask := server.NewDataLoad(channelService, cfg, logger)
 	return dataLoadTask, func() {
 	}, nil
@@ -41,7 +42,7 @@ func NewWire(cfg *config.Config, logger *log.Logger) (*server.DataLoadTask, func
 
 var repositorySet = wire.NewSet(repository.NewDB, repository.NewRepository, repository.NewTransaction, repository.NewChannelModelRepository, repository.NewChannelRepository)
 
-var serviceSet = wire.NewSet(service.NewService, service.NewOaiService, service.NewChannelService)
+var serviceSet = wire.NewSet(service.NewService, service.NewOaiService, service.NewChannelService, service.NewLoadBalanceServiceBeta)
 
 var handlerSet = wire.NewSet(handler.NewHandler, handler.NewOAIHandler)
 

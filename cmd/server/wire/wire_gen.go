@@ -42,7 +42,7 @@ func NewWire(cfg *config.Config, logger *log.Logger) (*WireApp, func(), error) {
 	oaiService := service.NewOaiService(serviceService, loadBalanceServiceBeta, requestLogService, channelModelRepository)
 	oaiHandler := handler.NewOAIHandler(oaiService)
 	handlerHandler := handler.NewHandler(logger)
-	linuxDoOauth := oauth2.NewLinuxDoService(cfg)
+	linuxDoOauth := oauth2.NewLinuxDoAuthService(cfg)
 	authService := oauth2.NewService(serviceService, userRepository, linuxDoOauth)
 	oAuth2Handler := handler.NewOAuth2Handler(handlerHandler, authService, cfg)
 	serviceAuthService := service.NewAuthService(serviceService, userRepository)
@@ -67,7 +67,7 @@ func NewWire(cfg *config.Config, logger *log.Logger) (*WireApp, func(), error) {
 
 var repositorySet = wire.NewSet(repository.NewDB, repository.NewRepository, repository.NewTransaction, repository.NewChannelRepository, repository.NewChannelModelRepository, repository.NewUserRepository, repository.NewApiKeyRepository, repository.NewRequestLogRepository)
 
-var serviceSet = wire.NewSet(service.NewService, service.NewOaiService, service.NewChannelService, service.NewLoadBalanceServiceBeta, service.NewRequestLogService, service.NewApiKeyService, service.NewUserService, service.NewAuthService, oauth2.NewService, oauth2.NewLinuxDoService)
+var serviceSet = wire.NewSet(service.NewService, service.NewOaiService, service.NewChannelService, service.NewLoadBalanceServiceBeta, service.NewRequestLogService, service.NewApiKeyService, service.NewUserService, service.NewAuthService, oauth2.NewService, oauth2.NewLinuxDoAuthService)
 
 var handlerSet = wire.NewSet(handler.NewHandler, handler.NewOAIHandler, handler.NewOAuth2Handler, handler.NewApiKeyHandler, handler.NewAuthHandler, handler.NewRequestLogHandler, handler.NewUserHandler)
 

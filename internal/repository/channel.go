@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/jiu-u/oai-api/internal/dto/query"
 	"github.com/jiu-u/oai-api/internal/model"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -61,10 +62,11 @@ type ChannelRepository interface {
 	FindChannelByIdForUpdate(ctx context.Context, id uint64) (*model.Channel, error)
 	FindChannelByIdForShare(ctx context.Context, id uint64) (*model.Channel, error)
 	FindAllChannels(ctx context.Context) ([]*model.Channel, error)
-	FindAllChannelsByCondition(ctx context.Context, options ...QueryOption) ([]*model.Channel, error)
-	ExistsChannel(ctx context.Context, options ...QueryOption) (bool, error)
+	FindAllChannelsByCondition(ctx context.Context, req *query.ChannelQueryRequest) ([]*model.Channel, int64, error)
+	ExistsChannel(ctx context.Context, channel *model.Channel) (bool, error)
 	UpdateChannel(ctx context.Context, channel *model.Channel) error
 	DeleteChannelByID(ctx context.Context, id uint64) error
+	PermanentlyDeleteChannel(ctx context.Context, channel *model.Channel) error
 	//FindByCondition(ctx context.Context, options ...QueryOption) (*model.Channel, error)
 	//Count(ctx context.Context, condition map[string]interface{}) (int64, error)
 	//UpdateByCondition(ctx context.Context, condition map[string]interface{}, channel *model.Channel) error
@@ -82,7 +84,24 @@ type channelRepository struct {
 	*Repository
 }
 
+func (r *channelRepository) PermanentlyDeleteChannel(ctx context.Context, channel *model.Channel) error {
+	return r.DB(ctx).Unscoped().Where("hash_id = ?", channel.HashId).Delete(&model.Channel{}).Error
+}
+
 func (r *channelRepository) CreateChannel(ctx context.Context, channel *model.Channel) error {
+	// 创建新的channel
+	exists, err := r.ExistsChannel(ctx, channel)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return errors.New("channel already exists")
+	}
+	// 强制删除软删除记录
+	err = r.PermanentlyDeleteChannel(ctx, channel)
+	if err != nil {
+		return err
+	}
 	return r.DB(ctx).Create(channel).Error
 }
 
@@ -106,10 +125,10 @@ func (r *channelRepository) CreateChannelIfNotExists(ctx context.Context, channe
 
 func (r *channelRepository) FindChannelById(ctx context.Context, id uint64) (*model.Channel, error) {
 	var channel model.Channel
-	err := r.DB(ctx).First(&channel, id).Error
+	err := r.DB(ctx).Model(&model.Channel{}).Preload("Models").First(&channel, id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("channel with ID %d not found", id)
+			return nil, fmt.Errorf("channel with Id %d not found", id)
 		}
 		return nil, fmt.Errorf("error fetching channel: %w", err)
 	}
@@ -121,7 +140,7 @@ func (r *channelRepository) FindChannelByIdForUpdate(ctx context.Context, id uin
 	err := r.db.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).First(&channel, id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("channel with ID %d not found", id)
+			return nil, fmt.Errorf("channel with Id %d not found", id)
 		}
 		return nil, fmt.Errorf("error fetching channel: %w", err)
 	}
@@ -133,7 +152,7 @@ func (r *channelRepository) FindChannelByIdForShare(ctx context.Context, id uint
 	err := r.DB(ctx).Clauses(clause.Locking{Strength: "SHARE"}).First(&channel, id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("channel with ID %d not found", id)
+			return nil, fmt.Errorf("channel with Id %d not found", id)
 		}
 		return nil, fmt.Errorf("error fetching channel: %w", err)
 	}
@@ -149,30 +168,48 @@ func (r *channelRepository) FindAllChannels(ctx context.Context) ([]*model.Chann
 	return channels, nil
 }
 
-func (r *channelRepository) FindAllChannelsByCondition(ctx context.Context, options ...QueryOption) ([]*model.Channel, error) {
+func (r *channelRepository) FindAllChannelsByCondition(ctx context.Context, req *query.ChannelQueryRequest) ([]*model.Channel, int64, error) {
 	var channels []*model.Channel
-	query := r.DB(ctx).Model(&model.Channel{})
-	for _, option := range options {
-		query = option(query)
+	var total int64
+	// 构建查询
+	dbQuery := r.DB(ctx).Model(&model.Channel{})
+	// 应用查询条件
+	if req.Name != "" {
+		dbQuery = dbQuery.Where("name like ?", "%"+req.Name+"%")
 	}
-	err := r.DB(ctx).Find(&channels).Error
+	if req.Type != "" {
+		dbQuery = dbQuery.Where("type = ?", req.Type)
+	}
+	if req.Status != 0 {
+		dbQuery = dbQuery.Where("status = ?", req.Status)
+	}
+	// 获取符合条件的总记录数
+	err := dbQuery.Count(&total).Error
 	if err != nil {
-		return nil, fmt.Errorf("error fetching channels: %w", err)
+		return nil, 0, fmt.Errorf("error counting channels: %w", err)
 	}
-	return channels, nil
+	// 设置分页
+	dbQuery = dbQuery.Offset((req.Page - 1) * req.PageSize).Limit(req.PageSize).Preload("Models")
+	// 获取符合条件的总记录数
+	err = dbQuery.Order("id desc").Find(&channels).Error
+	if err != nil {
+		return nil, 0, fmt.Errorf("error fetching channels with models: %w", err)
+	}
+	// 执行查询
+	return channels, total, nil
 }
 
-func (r *channelRepository) ExistsChannel(ctx context.Context, options ...QueryOption) (bool, error) {
-	var count int64
-	query := r.DB(ctx).Model(&model.Channel{})
-	for _, option := range options {
-		query = option(query)
-	}
-	err := query.Count(&count).Error
+func (r *channelRepository) ExistsChannel(ctx context.Context, channel *model.Channel) (bool, error) {
+	var temp model.Channel
+	var err error
+	err = r.DB(ctx).Model(&model.Channel{}).Where("hash_id = ?", channel.HashId).First(&temp).Error
 	if err != nil {
-		return false, fmt.Errorf("error counting channels: %w", err)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, nil
+		}
+		return false, fmt.Errorf("error fetching channel: %w", err)
 	}
-	return count > 0, nil
+	return true, nil
 }
 
 func (r *channelRepository) UpdateChannel(ctx context.Context, channel *model.Channel) error {

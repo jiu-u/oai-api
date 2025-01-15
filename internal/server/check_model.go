@@ -2,10 +2,10 @@ package server
 
 import (
 	"context"
+	adapterApi "github.com/jiu-u/oai-adapter/api"
+	"github.com/jiu-u/oai-api/internal/dto"
 	"github.com/jiu-u/oai-api/internal/repository"
 	"github.com/jiu-u/oai-api/internal/service"
-	adapterV1 "github.com/jiu-u/oai-api/pkg/adapter/api/v1"
-	"github.com/jiu-u/oai-api/pkg/config"
 	"github.com/jiu-u/oai-api/pkg/log"
 	"github.com/lithammer/shortuuid/v4"
 	"go.uber.org/zap"
@@ -17,28 +17,29 @@ type CheckModelServer struct {
 	channelRepo      repository.ChannelRepository
 	channelModelRepo repository.ChannelModelRepository
 	lbSvc            service.LoadBalanceServiceBeta
-	cfg              *config.Config
 	logger           *log.Logger
+	systemConfigSvc  service.SystemConfigService
 }
 
 func NewCheckModelServer(
-	cfg *config.Config,
 	lbSvc service.LoadBalanceServiceBeta,
 	channelRepo repository.ChannelRepository,
 	channelModelRepo repository.ChannelModelRepository,
 	logger *log.Logger,
+	systemConfigSvc service.SystemConfigService,
 ) *CheckModelServer {
 	return &CheckModelServer{
 		lbSvc:            lbSvc,
 		channelRepo:      channelRepo,
 		channelModelRepo: channelModelRepo,
-		cfg:              cfg,
 		logger:           logger,
+		systemConfigSvc:  systemConfigSvc,
 	}
 }
 
 func (c *CheckModelServer) Start(ctx context.Context) error {
-	return c.CheckModelChatStatus(ctx)
+	return nil
+	//return c.CheckModelChatStatus(ctx)
 }
 
 func (c *CheckModelServer) Stop(ctx context.Context) error {
@@ -46,21 +47,34 @@ func (c *CheckModelServer) Stop(ctx context.Context) error {
 }
 
 func (c *CheckModelServer) CheckModelChatStatus(ctx context.Context) error {
-	checklist := c.cfg.ChatCompletionCheck
 	task := make(chan string, 1)
 	go func() {
 		for _ = range task {
+			conf, err := c.systemConfigSvc.GetModelConfig(ctx)
+			if err != nil {
+				time.Sleep(3 * time.Second)
+				continue
+			}
+			if conf.CheckList == nil || len(conf.CheckList) == 0 {
+				time.Sleep(3 * time.Second)
+				continue
+			}
+			if conf.ModelMapping == nil {
+				conf.ModelMapping = make(map[string][]string)
+			}
+			modelMapping := conf.ModelMapping
+			checklist := conf.CheckList
 			uid := shortuuid.New()
 			ctx = c.logger.WithValue(context.Background(), zap.String("traceId", uid), zap.String("type", "check_cron"))
-			err := c.lbSvc.RecoverChannelModels(ctx)
+			err = c.lbSvc.RecoverChannelModels(ctx)
 			if err != nil {
 				c.logger.WithContext(ctx).Error("定时检查|chat|模型恢复失败", zap.Error(err))
 			}
 			c.logger.WithContext(ctx).Info("一轮定时检查开始")
 			for _, modelId := range checklist {
 				modelIds := []string{modelId}
-				if _, ok := c.cfg.ModelMapping[modelId]; ok {
-					modelIds = append(modelIds, c.cfg.ModelMapping[modelId]...)
+				if _, ok := modelMapping[modelId]; ok {
+					modelIds = append(modelIds, modelMapping[modelId]...)
 				}
 				err := c.CheckModel(ctx, modelIds)
 				if err != nil {
@@ -101,7 +115,7 @@ func (c *CheckModelServer) CheckModel(ctx context.Context, modelIds []string) er
 			zap.String("channelName", channel.Name),
 			zap.String("providerApiKey", channel.APIKey),
 		)
-		conf := &service.ChannelModelConf{
+		conf := &dto.ChannelModelConf{
 			ChannelId:       item.ChannelId,
 			ChannelName:     channel.Name,
 			ChannelType:     channel.Type,
@@ -111,14 +125,14 @@ func (c *CheckModelServer) CheckModel(ctx context.Context, modelIds []string) er
 			ModelKey:        item.ModelKey,
 			Weight:          item.Weight,
 		}
-		newProvider, err := service.NewOAIProvider(conf)
+		adapterX, err := service.NewOAIAdapter(conf)
 		if err != nil {
 			zapLogger.Warn("定时检查|chat|创建provider失败", zap.Error(err))
 			continue
 		}
-		body, _, err := newProvider.ChatCompletions(ctx, &adapterV1.ChatCompletionRequest{
+		body, _, err := adapterX.ChatCompletions(ctx, &adapterApi.ChatRequest{
 			Model: item.ModelKey,
-			Messages: []adapterV1.Message{
+			Messages: []adapterApi.Message{
 				{
 					Role:    "user",
 					Content: []byte(`"hello,测试!"`),

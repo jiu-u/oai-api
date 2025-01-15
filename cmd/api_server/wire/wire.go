@@ -28,6 +28,8 @@ var repositorySet = wire.NewSet(
 	repository.NewRequestLogRepository,
 	repository.NewChannelRepository,
 	repository.NewChannelModelRepository,
+	repository.NewSystemRepository,
+	repository.NewUserAuthProviderRepository,
 )
 
 var serviceSet = wire.NewSet(
@@ -39,18 +41,24 @@ var serviceSet = wire.NewSet(
 	service.NewApiKeyService,
 	service.NewUserService,
 	service.NewAuthService,
-	oauth2.NewService,
-	oauth2.NewLinuxDoService,
+	service.NewSystemConfigService,
+	service.NewEmailService,
+	service.NewVerificationService,
+	service.NewModelCheckService,
+	oauth2.NewLinuxDoAuthService,
+	oauth2.NewGithubAuthService,
 )
 
 var handlerSet = wire.NewSet(
 	handler.NewHandler,
 	handler.NewOAIHandler,
-	handler.NewOAuth2Handler,
 	handler.NewApiKeyHandler,
 	handler.NewAuthHandler,
 	handler.NewRequestLogHandler,
 	handler.NewUserHandler,
+	handler.NewSystemConfigHandler,
+	handler.NewVerificationHandler,
+	handler.NewChannelHandler,
 )
 
 var serverSet = wire.NewSet(

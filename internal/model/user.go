@@ -1,13 +1,18 @@
 package model
 
+import "time"
+
 type User struct {
 	BaseModel
-	Username        string `gorm:"size:255;index;comment:用户名"`
-	Password        string `gorm:"size:255;comment:用户密码"`
-	UserEmail       string `gorm:"size:256;index;comment:用户邮箱"`
-	Role            string `gorm:"index;default:user;comment:角色"`
-	LinuxDoId       uint64 `gorm:"unique;index;comment:linuxDo用户id"`
-	LinuxDoUsername string `gorm:"unique;index;size:256;comment:linuxDo用户名"`
-	LinuxDoLevel    int    `gorm:"index;comment:linuxDo用户权限等级"`
-	Status          int8   `gorm:"default:1;comment:状态,1启用,2禁用"`
+	Username    string  `gorm:"type:varchar(255);unique;index;not null;comment:用户名(唯一，不可为空)" json:"username"`
+	Email       *string `gorm:"type:varchar(255);unique;index;comment:邮箱(唯一，可为空)" json:"email"`
+	Phone       *string `gorm:"type:varchar(20);unique;index;comment:手机号(唯一，可为空)" json:"phone"`
+	Password    string  `gorm:"type:varchar(255);comment:密码(可为空)" json:"password"`
+	Avatar      string  `gorm:"type:varchar(255);comment:头像(可为空)" json:"avatar"`
+	Role        string  `gorm:"type:varchar(64);default:user;comment:角色(可为空)" json:"role"`
+	Status      int8    `gorm:"default:1;index;comment:状态,1启用,2禁用" json:"status"`
+	Nickname    string  `gorm:"type:varchar(255);comment:昵称(可为空)" json:"nickname"`
+	Level       int
+	LastLoginAt time.Time `json:"lastLoginAt"`
+	LastLoginIP string    `gorm:"type:varchar(39)" json:"lastLoginIP"`
 }

@@ -103,7 +103,7 @@ import (
 //	}
 //	selected := result[idx]
 //
-//	str := fmt.Sprintf("请求||请求模型:%s\t\t 实际模型:%s\t\t 服务商名称：%s\t\t ID:%v\t\t Content:%s\n", modelId, selected.Model, l.providerMap[selected.ProviderId].Name, selected.ProviderId, GetKeyId(l.providerMap[selected.ProviderId].APIKey, selected.ProviderId))
+//	str := fmt.Sprintf("请求||请求模型:%s\t\t 实际模型:%s\t\t 服务商名称：%s\t\t Id:%v\t\t Content:%s\n", modelId, selected.Model, l.providerMap[selected.ProviderId].Name, selected.ProviderId, GetKeyId(l.providerMap[selected.ProviderId].APIKey, selected.ProviderId))
 //	l.Logger.WithContext(ctx).Info(str)
 //	return &ChannelModelConf{
 //		ProviderName: l.providerMap[selected.ProviderId].Name,

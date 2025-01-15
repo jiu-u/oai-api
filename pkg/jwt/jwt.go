@@ -75,12 +75,15 @@ func (j *JWT) ParseToken(tokenString string, prefix string) (*MyCustomClaims, er
 	}
 }
 
+var AccessTokenDuration = time.Minute * 15
+var RefreshTokenDuration = time.Hour * 24 * 7
+
 func (j *JWT) GenAccessToken(userId uint64, role string) (string, error) {
-	expiresAt := time.Now().Add(time.Minute * 15)
+	expiresAt := time.Now().Add(AccessTokenDuration)
 	return j.GenToken(userId, role, ACCESS, expiresAt)
 }
 func (j *JWT) GenRefreshToken(userId uint64, role string) (string, error) {
-	expiresAt := time.Now().Add(time.Hour * 24 * 7)
+	expiresAt := time.Now().Add(RefreshTokenDuration)
 	return j.GenToken(userId, role, REFRESH, expiresAt)
 }
 

@@ -48,7 +48,7 @@ func (r *apiKeyRepo) InsertOne(ctx context.Context, apiKey *model.ApiKey) error 
 	return r.DB(ctx).Create(apiKey).Error
 }
 
-// DeleteOne 根据 ID 删除一条 ApiKey 记录
+// DeleteOne 根据 Id 删除一条 ApiKey 记录
 func (r *apiKeyRepo) DeleteOne(ctx context.Context, id uint64) error {
 	if id == 0 {
 		return errors.New("id is invalid")

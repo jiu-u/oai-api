@@ -3,7 +3,6 @@ package config
 import (
 	"fmt"
 	"github.com/spf13/viper"
-	"gopkg.in/yaml.v3"
 	"os"
 	"strings"
 )
@@ -45,12 +44,6 @@ type Config struct {
 			Key string `mapstructure:"key"`
 		} `mapstructure:"jwt"`
 	} `mapstructure:"security"`
-	Oauth struct {
-		LinuxDo struct {
-			ClientId     string `mapstructure:"client_id"`
-			ClientSecret string `mapstructure:"client_secret"`
-		} `mapstructure:"linux_do"`
-	} `mapstructure:"oauth"`
 	Log struct {
 		Level         string `mapstructure:"log_level"`
 		Encoding      string `mapstructure:"encoding"`
@@ -62,9 +55,9 @@ type Config struct {
 		MaxSize       int    `mapstructure:"max_size"`
 		Compress      bool   `mapstructure:"compress"`
 	} `mapstructure:"log"`
-	ModelMapping        map[string][]string `mapstructure:"model_mapping"`
-	ChatCompletionCheck []string            `mapstructure:"chat_completion_check"`
-	Providers           []ProviderConf      `mapstructure:"providers"`
+	//ModelMapping        map[string][]string `mapstructure:"model_mapping"`
+	//ChatCompletionCheck []string            `mapstructure:"chat_completion_check"`
+	//Providers           []ProviderConf      `mapstructure:"providers"`
 }
 
 const prefix = "OAI"
@@ -98,33 +91,31 @@ func LoadConfig(path string) *Config {
 	if err != nil {
 		panic(err)
 	}
-	loadDataYaml(&cfg)
-	fmt.Println("clientId", cfg.Oauth.LinuxDo.ClientId)
-	fmt.Println("clientSecret", cfg.Oauth.LinuxDo.ClientSecret)
+	//loadDataYaml(&cfg)
 	return &cfg
 }
 
-func loadDataYaml(cfg *Config) {
-	type Data struct {
-		ModelMapping        map[string][]string `yaml:"model_mapping"`
-		ChatCompletionCheck []string            `yaml:"chat_completion_check"`
-		Providers           []ProviderConf      `yaml:"providers"`
-	}
-	_, err := os.Stat("./data/conf/data.yaml")
-	if err != nil {
-		return
-	}
-	file, err := os.OpenFile("./data/conf/data.yaml", os.O_RDONLY, 0644)
-	if err != nil {
-		return
-	}
-	defer file.Close()
-	var data Data
-	err = yaml.NewDecoder(file).Decode(&data)
-	if err != nil {
-		return
-	}
-	cfg.ModelMapping = data.ModelMapping
-	cfg.ChatCompletionCheck = data.ChatCompletionCheck
-	cfg.Providers = data.Providers
-}
+//func loadDataYaml(cfg *Config) {
+//	type List struct {
+//		ModelMapping        map[string][]string `yaml:"model_mapping"`
+//		ChatCompletionCheck []string            `yaml:"chat_completion_check"`
+//		Providers           []ProviderConf      `yaml:"providers"`
+//	}
+//	_, err := os.Stat("./data/conf/data.yaml")
+//	if err != nil {
+//		return
+//	}
+//	file, err := os.OpenFile("./data/conf/data.yaml", os.O_RDONLY, 0644)
+//	if err != nil {
+//		return
+//	}
+//	defer file.Close()
+//	var data List
+//	err = yaml.NewDecoder(file).Decode(&data)
+//	if err != nil {
+//		return
+//	}
+//	cfg.ModelMapping = data.ModelMapping
+//	cfg.ChatCompletionCheck = data.ChatCompletionCheck
+//	cfg.Providers = data.Providers
+//}

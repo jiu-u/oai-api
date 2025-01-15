@@ -51,7 +51,7 @@ func (s *apiKeyService) CreateApiKey(ctx context.Context, req *v1.CreateApiKeyRe
 	if err != nil {
 		return nil, err
 	}
-	user, err := s.userRepo.FindOne(ctx, userId)
+	user, err := s.userRepo.FindUserById(ctx, userId)
 	if err != nil {
 		return nil, err
 	}

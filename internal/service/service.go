@@ -1,8 +1,10 @@
 package service
 
 import (
+	"context"
 	"github.com/jiu-u/oai-api/internal/repository"
 	"github.com/jiu-u/oai-api/pkg/cache"
+	"github.com/jiu-u/oai-api/pkg/constant"
 	"github.com/jiu-u/oai-api/pkg/jwt"
 	"github.com/jiu-u/oai-api/pkg/log"
 	"github.com/jiu-u/oai-api/pkg/sid"
@@ -30,4 +32,13 @@ func NewService(
 		Jwt:    jwt,
 		Cache:  cache,
 	}
+}
+
+func GetClientIp(ctx context.Context) string {
+	value := ctx.Value(constant.ClientIPKey)
+	str, ok := value.(string)
+	if !ok {
+		return ""
+	}
+	return str
 }

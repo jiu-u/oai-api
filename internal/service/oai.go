@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"github.com/bytedance/sonic"
-	"github.com/gin-gonic/gin"
+	adapter "github.com/jiu-u/oai-adapter"
+	adapterApi "github.com/jiu-u/oai-adapter/api"
 	apiV1 "github.com/jiu-u/oai-api/api/v1"
+	"github.com/jiu-u/oai-api/internal/dto"
 	"github.com/jiu-u/oai-api/internal/repository"
 	adapterV1 "github.com/jiu-u/oai-api/pkg/adapter/api/v1"
-	"github.com/jiu-u/oai-api/pkg/adapter/provider"
 	"github.com/jiu-u/oai-api/pkg/array"
 	"go.uber.org/zap"
 	"io"
@@ -37,39 +38,21 @@ const (
 
 type OaiService interface {
 	RelayRequest(ctx context.Context, req any, modelId string, relayType RelayType) (io.ReadCloser, http.Header, error)
-	ChatCompletions(ctx context.Context, req *adapterV1.ChatCompletionRequest) (io.ReadCloser, http.Header, error)
+	ChatCompletions(ctx context.Context, req *adapterApi.ChatRequest) (io.ReadCloser, http.Header, error)
 	ChatCompletionsByBytes(ctx context.Context, req []byte, modelId string) (io.ReadCloser, http.Header, error)
 	Models(ctx context.Context) (*apiV1.ModelResponse, error)
-	Completions(ctx context.Context, req *adapterV1.CompletionsRequest) (io.ReadCloser, http.Header, error)
+	Completions(ctx context.Context, req *adapterApi.CompletionsRequest) (io.ReadCloser, http.Header, error)
 	CompletionsByBytes(ctx context.Context, req []byte, modelId string) (io.ReadCloser, http.Header, error)
-	Embeddings(ctx context.Context, req *adapterV1.EmbeddingRequest) (io.ReadCloser, http.Header, error)
+	Embeddings(ctx context.Context, req *adapterApi.EmbeddingRequest) (io.ReadCloser, http.Header, error)
 	EmbeddingsByBytes(ctx context.Context, req []byte, modelId string) (io.ReadCloser, http.Header, error)
-	CreateSpeech(ctx context.Context, req *adapterV1.SpeechRequest) (io.ReadCloser, http.Header, error)
+	CreateSpeech(ctx context.Context, req *adapterApi.SpeechRequest) (io.ReadCloser, http.Header, error)
 	CreateSpeechByBytes(ctx context.Context, req []byte, modelId string) (io.ReadCloser, http.Header, error)
-	Transcriptions(ctx context.Context, req *adapterV1.TranscriptionRequest) (io.ReadCloser, http.Header, error)
-	Translations(ctx context.Context, req *adapterV1.TranslationRequest) (io.ReadCloser, http.Header, error)
-	CreateImage(ctx context.Context, req *adapterV1.CreateImageRequest) (io.ReadCloser, http.Header, error)
+	Transcriptions(ctx context.Context, req *adapterApi.TranscriptionRequest) (io.ReadCloser, http.Header, error)
+	Translations(ctx context.Context, req *adapterApi.TranslationRequest) (io.ReadCloser, http.Header, error)
+	CreateImage(ctx context.Context, req *adapterApi.CreateImageRequest) (io.ReadCloser, http.Header, error)
 	CreateImageByBytes(ctx context.Context, req []byte, modelId string) (io.ReadCloser, http.Header, error)
-	CreateImageEdit(ctx context.Context, req *adapterV1.EditImageRequest) (io.ReadCloser, http.Header, error)
-	ImageVariations(ctx context.Context, req *adapterV1.CreateImageVariationRequest) (io.ReadCloser, http.Header, error)
-}
-
-func NewOAIProvider(conf *ChannelModelConf) (provider.Provider, error) {
-	aConf := provider.Config{
-		Type:     conf.ChannelType,
-		EndPoint: conf.ChannelEndPoint,
-		APIKey:   conf.ChannelKey,
-	}
-	switch aConf.Type {
-	case "openai":
-		return provider.NewOpenAIProvider(aConf), nil
-	case "oaiNoFetchModel":
-		return provider.NewOaiNoFetchModelProvider(aConf, nil), nil
-	case "siliconflow":
-		return provider.NewSiliconFlowProvider(aConf), nil
-	default:
-		return nil, errors.New("invalid provider type")
-	}
+	CreateImageEdit(ctx context.Context, req *adapterApi.EditImageRequest) (io.ReadCloser, http.Header, error)
+	ImageVariations(ctx context.Context, req *adapterApi.CreateImageVariationRequest) (io.ReadCloser, http.Header, error)
 }
 
 func NewOaiService(
@@ -95,34 +78,50 @@ type oaiService struct {
 	reqLogSvc        RequestLogService
 }
 
-func (s *oaiService) GoLogReq(ctx context.Context, modelId string, status int8) {
-	go s.LogReq(ctx, modelId, status)
+var typeMp = map[string]adapter.AdapterType{
+	"openai":          adapter.OpenAI,
+	"oaiNoModels":     adapter.OAINoModels,
+	"gemini":          adapter.Gemini,
+	"siliconflow":     adapter.SiliconFlow,
+	"siliconflowFree": adapter.SiliconFlowFree,
 }
 
-func (s *oaiService) LogReq(ctx context.Context, modelId string, status int8) {
-	_, ok := ctx.(*gin.Context)
-	if !ok {
-		return
+func NewOAIAdapter(conf *dto.ChannelModelConf) (adapter.Adapter, error) {
+	if _, exist := typeMp[conf.ChannelType]; !exist {
+		return nil, errors.New("invalid provider type")
 	}
-	apiKey, err := GetApiKey(ctx.(*gin.Context))
+	cfg := &adapter.AdapterConfig{
+		AdapterType:  typeMp[conf.ChannelType],
+		ApiKey:       conf.ChannelKey,
+		EndPoint:     conf.ChannelEndPoint,
+		ManualModels: nil,
+		ProxyURL:     nil,
+	}
+	adapter2 := adapter.NewAdapter(cfg)
+	return adapter2, nil
+}
+
+func (s *oaiService) GoLogReq(ctx context.Context, trace *RequestLogReq) {
+	go s.LogReq(ctx, trace)
+}
+
+func (s *oaiService) LogReq(ctx context.Context, trace *RequestLogReq) {
+	apiKey, err := GetApiKey(ctx)
 	if err != nil {
 		return
 	}
-	req := RequestLogReq{
-		Key:    apiKey,
-		Status: status,
-		Model:  modelId,
-		Ip:     ctx.(*gin.Context).ClientIP(),
-	}
-	err = s.reqLogSvc.CreateRequestLog(ctx, &req)
+	req := trace
+	req.Key = apiKey
+	req.Ip = GetClientIp(ctx)
+	err = s.reqLogSvc.CreateRequestLog(ctx, req)
 	if err != nil {
 		s.Logger.Warn("创建请求日志失败", zap.Error(err))
 	}
 }
 
-func GetApiKey(ctx *gin.Context) (string, error) {
-	apiKey, exist := ctx.Get("apiKey")
-	if apiKey == "" || !exist {
+func GetApiKey(ctx context.Context) (string, error) {
+	apiKey := ctx.Value("apiKey")
+	if apiKey == "" {
 		return "", errors.New("api key is empty")
 	}
 	return apiKey.(string), nil
@@ -150,7 +149,9 @@ func (s *oaiService) RelayRequest(ctx context.Context, req any, modelId string, 
 		return nil, nil, errors.New("modelId is empty")
 	}
 	logger := s.Logger.WithContext(ctx)
+	trace := new(RequestLogReq)
 	for i := range s.N {
+		trace.RetryTimes = i
 		zapLogger := logger.With(
 			zap.String("reqModelId", reqModelId),
 			zap.String("relayType", strconv.Itoa(int(relayType))),
@@ -161,33 +162,39 @@ func (s *oaiService) RelayRequest(ctx context.Context, req any, modelId string, 
 			zapLogger.Warn("获取provider失败", zap.Error(err))
 			continue
 		}
-		newProvider, err := NewOAIProvider(conf)
+		trace.Model = conf.ModelKey
+		trace.ChannelNames += conf.ChannelName + ","
+		trace.ChannelIds += strconv.FormatUint(conf.ModelRecordId, 10) + ","
+		adapterX, err := NewOAIAdapter(conf)
 		if err != nil {
-			zapLogger.Warn("创建provider失败", zap.Error(err))
+			zapLogger.Warn("获取provider失败", zap.Error(err))
 			continue
 		}
-		resp, respHeader, err := s.DoRelayRequest(ctx, req, conf.ModelKey, relayType, newProvider)
+		resp, respHeader, err := s.DoRelayRequest(ctx, req, conf.ModelKey, relayType, adapterX)
 		if err == nil {
 			zapLogger.Info("获取response成功", zap.Error(err))
 			s.SuccessCb(ctx, conf.ModelRecordId)
-			s.GoLogReq(ctx, conf.ModelKey, 1)
+			trace.Status = 1
+			s.GoLogReq(ctx, trace)
 			return resp, respHeader, nil
 		}
 		// 标记模型不可用
 		s.FailCb(ctx, conf.ModelRecordId)
 	}
+	trace.Status = 2
+	s.GoLogReq(ctx, trace)
 	return nil, nil, errors.New("all provider failed.please try again later")
 }
 
-func (s *oaiService) DoRelayRequest(ctx context.Context, reqBody any, modelId string, relayType RelayType, p provider.Provider) (io.ReadCloser, http.Header, error) {
+func (s *oaiService) DoRelayRequest(ctx context.Context, reqBody any, modelId string, relayType RelayType, ad adapter.Adapter) (io.ReadCloser, http.Header, error) {
 	switch relayType {
 	case RelayChat:
-		req, ok := reqBody.(*adapterV1.ChatCompletionRequest)
+		req, ok := reqBody.(*adapterApi.ChatRequest)
 		if !ok {
 			return nil, nil, errors.New("invalid request body")
 		}
 		req.Model = modelId
-		return p.ChatCompletions(ctx, req)
+		return ad.ChatCompletions(ctx, req)
 	case RelayChatByBytes:
 		req, ok := reqBody.([]byte)
 		if !ok {
@@ -197,14 +204,14 @@ func (s *oaiService) DoRelayRequest(ctx context.Context, reqBody any, modelId st
 		if err != nil {
 			return nil, nil, err
 		}
-		return p.ChatCompletionsByBytes(ctx, req)
+		return ad.ChatCompletionsByBytes(ctx, req)
 	case RelayCompletion:
-		req, ok := reqBody.(*adapterV1.CompletionsRequest)
+		req, ok := reqBody.(*adapterApi.CompletionsRequest)
 		if !ok {
 			return nil, nil, errors.New("invalid request body")
 		}
 		req.Model = modelId
-		return p.Completions(ctx, req)
+		return ad.Completions(ctx, req)
 	case RelayCompletionByBytes:
 		req, ok := reqBody.([]byte)
 		if !ok {
@@ -214,14 +221,14 @@ func (s *oaiService) DoRelayRequest(ctx context.Context, reqBody any, modelId st
 		if err != nil {
 			return nil, nil, err
 		}
-		return p.CompletionsByBytes(ctx, req)
+		return ad.CompletionsByBytes(ctx, req)
 	case RelayEmbedding:
-		req, ok := reqBody.(*adapterV1.EmbeddingRequest)
+		req, ok := reqBody.(*adapterApi.EmbeddingRequest)
 		if !ok {
 			return nil, nil, errors.New("invalid request body")
 		}
 		req.Model = modelId
-		return p.Embeddings(ctx, req)
+		return ad.Embeddings(ctx, req)
 	case RelayEmbeddingByBytes:
 		req, ok := reqBody.([]byte)
 		if !ok {
@@ -231,14 +238,14 @@ func (s *oaiService) DoRelayRequest(ctx context.Context, reqBody any, modelId st
 		if err != nil {
 			return nil, nil, err
 		}
-		return p.EmbeddingsByBytes(ctx, req)
+		return ad.EmbeddingsByBytes(ctx, req)
 	case RelaySpeech:
-		req, ok := reqBody.(*adapterV1.SpeechRequest)
+		req, ok := reqBody.(*adapterApi.SpeechRequest)
 		if !ok {
 			return nil, nil, errors.New("invalid request body")
 		}
 		req.Model = modelId
-		return p.CreateSpeech(ctx, req)
+		return ad.CreateSpeech(ctx, req)
 	case RelaySpeechByBytes:
 		req, ok := reqBody.([]byte)
 		if !ok {
@@ -248,28 +255,28 @@ func (s *oaiService) DoRelayRequest(ctx context.Context, reqBody any, modelId st
 		if err != nil {
 			return nil, nil, err
 		}
-		return p.CreateSpeechByBytes(ctx, req)
+		return ad.CreateSpeechByBytes(ctx, req)
 	case RelayTranscriptions:
-		req, ok := reqBody.(*adapterV1.TranscriptionRequest)
+		req, ok := reqBody.(*adapterApi.TranscriptionRequest)
 		if !ok {
 			return nil, nil, errors.New("invalid request body")
 		}
 		req.Model = modelId
-		return p.Transcriptions(ctx, req)
+		return ad.Transcriptions(ctx, req)
 	case RelayTranslations:
-		req, ok := reqBody.(*adapterV1.TranslationRequest)
+		req, ok := reqBody.(*adapterApi.TranslationRequest)
 		if !ok {
 			return nil, nil, errors.New("invalid request body")
 		}
 		req.Model = modelId
-		return p.Translations(ctx, req)
+		return ad.Translations(ctx, req)
 	case RelayImage:
-		req, ok := reqBody.(*adapterV1.CreateImageRequest)
+		req, ok := reqBody.(*adapterApi.CreateImageRequest)
 		if !ok {
 			return nil, nil, errors.New("invalid request body")
 		}
 		req.Model = modelId
-		return p.CreateImage(ctx, req)
+		return ad.CreateImage(ctx, req)
 	case RelayImageByBytes:
 		req, ok := reqBody.([]byte)
 		if !ok {
@@ -279,27 +286,27 @@ func (s *oaiService) DoRelayRequest(ctx context.Context, reqBody any, modelId st
 		if err != nil {
 			return nil, nil, err
 		}
-		return p.CreateImageByBytes(ctx, req)
+		return ad.CreateImageByBytes(ctx, req)
 	case RelayImageEdit:
-		req, ok := reqBody.(*adapterV1.EditImageRequest)
+		req, ok := reqBody.(*adapterApi.EditImageRequest)
 		if !ok {
 			return nil, nil, errors.New("invalid request body")
 
 		}
 		req.Model = modelId
-		return p.CreateImageEdit(ctx, req)
+		return ad.CreateImageEdit(ctx, req)
 	case RelayImageVariations:
-		req, ok := reqBody.(*adapterV1.CreateImageVariationRequest)
+		req, ok := reqBody.(*adapterApi.CreateImageVariationRequest)
 		if !ok {
 			return nil, nil, errors.New("invalid request body")
 		}
 		req.Model = modelId
-		return p.ImageVariations(ctx, req)
+		return ad.ImageVariations(ctx, req)
 	}
 	return nil, nil, errors.New("invalid relay type")
 }
 
-func (s *oaiService) ChatCompletions2Archive(ctx context.Context, req *adapterV1.ChatCompletionRequest) (io.ReadCloser, http.Header, error) {
+func (s *oaiService) ChatCompletions2Archive(ctx context.Context, req *adapterApi.ChatRequest) (io.ReadCloser, http.Header, error) {
 	reqModelId := req.Model
 	for _ = range s.N {
 		conf, err := s.load.NextChannel(ctx, reqModelId)
@@ -307,16 +314,17 @@ func (s *oaiService) ChatCompletions2Archive(ctx context.Context, req *adapterV1
 			s.Logger.Warn("获取provider失败", zap.String("modelId", reqModelId), zap.Error(err))
 			continue
 		}
-		newProvider, err := NewOAIProvider(conf)
+		adapterX, err := NewOAIAdapter(conf)
+		//newProvider, err := NewOAIProvider(conf)
 		if err != nil {
 			s.Logger.Warn("创建provider失败", zap.String("modelId", reqModelId), zap.Error(err))
 			continue
 		}
 		req.Model = conf.ModelKey
-		resp, respHeader, err := newProvider.ChatCompletions(ctx, req)
+		resp, respHeader, err := adapterX.ChatCompletions(ctx, req)
 		if err == nil {
 			s.SuccessCb(ctx, conf.ModelRecordId)
-			s.GoLogReq(ctx, conf.ModelKey, 1)
+			//s.GoLogReq(ctx, conf.ModelKey, 1)
 			return resp, respHeader, nil
 		}
 		detail, _ := io.ReadAll(resp)
@@ -334,7 +342,7 @@ func (s *oaiService) ChatCompletions2Archive(ctx context.Context, req *adapterV1
 			zap.String("provider", strconv.FormatUint(conf.ChannelId, 10)),
 			zap.Error(err))
 	}
-	s.GoLogReq(ctx, reqModelId, 2)
+	//s.GoLogReq(ctx, reqModelId, 2)
 	return nil, nil, errors.New("no service available")
 }
 
@@ -344,21 +352,23 @@ func (s *oaiService) ChatCompletionsByBytes2Archive(ctx context.Context, req []b
 		if err != nil {
 			continue
 		}
-		newProvider, err := NewOAIProvider(conf)
+
+		adapterX, err := NewOAIAdapter(conf)
 		if err != nil {
+			s.Logger.Warn("创建provider失败", zap.String("modelId", modelId), zap.Error(err))
 			continue
 		}
 		req, err = changeBytesModelId(req, conf.ModelId)
-		resp, respHeader, err := newProvider.ChatCompletionsByBytes(ctx, req)
+		resp, respHeader, err := adapterX.ChatCompletionsByBytes(ctx, req)
 		if err == nil {
 			s.SuccessCb(ctx, conf.ModelRecordId)
-			s.GoLogReq(ctx, conf.ModelId, 1)
+			// s.GoLogReq(ctx, conf.ModelId, 1)
 			return resp, respHeader, nil
 		}
 		// 标记模型不可用
 		s.FailCb(ctx, conf.ModelRecordId)
 	}
-	s.GoLogReq(ctx, modelId, 2)
+	//s.GoLogReq(ctx, modelId, 2)
 	return nil, nil, errors.New("no service available")
 }
 
@@ -391,28 +401,29 @@ func (s *oaiService) Models(ctx context.Context) (*apiV1.ModelResponse, error) {
 	return resp, nil
 }
 
-func (s *oaiService) Completions2Archive(ctx context.Context, req *adapterV1.CompletionsRequest) (io.ReadCloser, http.Header, error) {
+func (s *oaiService) Completions2Archive(ctx context.Context, req *adapterApi.CompletionsRequest) (io.ReadCloser, http.Header, error) {
 	reqModelId := req.Model
 	for _ = range s.N {
 		conf, err := s.load.NextChannel(ctx, reqModelId)
 		if err != nil {
 			continue
 		}
-		newProvider, err := NewOAIProvider(conf)
+		adapterX, err := NewOAIAdapter(conf)
 		if err != nil {
+			s.Logger.Warn("创建provider失败", zap.String("modelId", reqModelId), zap.Error(err))
 			continue
 		}
 		req.Model = conf.ModelId
-		resp, respHeader, err := newProvider.Completions(ctx, req)
+		resp, respHeader, err := adapterX.Completions(ctx, req)
 		if err == nil {
 			s.SuccessCb(ctx, conf.ModelRecordId)
-			s.GoLogReq(ctx, conf.ModelId, 1)
+			// s.GoLogReq(ctx, conf.ModelId, 1)
 			return resp, respHeader, nil
 		}
 		// 标记模型不可用
 		s.FailCb(ctx, conf.ModelRecordId)
 	}
-	s.GoLogReq(ctx, reqModelId, 2)
+	//s.GoLogReq(ctx, reqModelId, 2)
 	return nil, nil, errors.New("no service available")
 }
 
@@ -422,46 +433,48 @@ func (s *oaiService) CompletionsByBytes2Archive(ctx context.Context, req []byte,
 		if err != nil {
 			continue
 		}
-		newProvider, err := NewOAIProvider(conf)
+		adapterX, err := NewOAIAdapter(conf)
 		if err != nil {
+			s.Logger.Warn("创建provider失败", zap.String("modelId", modelId), zap.Error(err))
 			continue
 		}
 		req, err = changeBytesModelId(req, conf.ModelId)
-		resp, respHeader, err := newProvider.CompletionsByBytes(ctx, req)
+		resp, respHeader, err := adapterX.CompletionsByBytes(ctx, req)
 		if err == nil {
 			s.SuccessCb(ctx, conf.ModelRecordId)
-			s.GoLogReq(ctx, conf.ModelId, 1)
+			// s.GoLogReq(ctx, conf.ModelId, 1)
 			return resp, respHeader, nil
 		}
 		// 标记模型不可用
 		s.FailCb(ctx, conf.ModelRecordId)
 	}
-	s.GoLogReq(ctx, modelId, 2)
+	//s.GoLogReq(ctx, modelId, 2)
 	return nil, nil, errors.New("no service available")
 }
 
-func (s *oaiService) Embeddings2Archive(ctx context.Context, req *adapterV1.EmbeddingRequest) (io.ReadCloser, http.Header, error) {
+func (s *oaiService) Embeddings2Archive(ctx context.Context, req *adapterApi.EmbeddingRequest) (io.ReadCloser, http.Header, error) {
 	reqModelId := req.Model
 	for _ = range s.N {
 		conf, err := s.load.NextChannel(ctx, reqModelId)
 		if err != nil {
 			continue
 		}
-		newProvider, err := NewOAIProvider(conf)
+		adapterX, err := NewOAIAdapter(conf)
 		if err != nil {
+			s.Logger.Warn("创建provider失败", zap.String("modelId", reqModelId), zap.Error(err))
 			continue
 		}
 		req.Model = conf.ModelId
-		resp, respHeader, err := newProvider.Embeddings(ctx, req)
+		resp, respHeader, err := adapterX.Embeddings(ctx, req)
 		if err == nil {
 			s.SuccessCb(ctx, conf.ModelRecordId)
-			s.GoLogReq(ctx, conf.ModelId, 1)
+			// s.GoLogReq(ctx, conf.ModelId, 1)
 			return resp, respHeader, nil
 		}
 		// 标记模型不可用
 		s.FailCb(ctx, conf.ModelRecordId)
 	}
-	s.GoLogReq(ctx, reqModelId, 2)
+	//s.GoLogReq(ctx, reqModelId, 2)
 	return nil, nil, errors.New("no service available")
 }
 
@@ -471,45 +484,47 @@ func (s *oaiService) EmbeddingsByBytes2Archive(ctx context.Context, req []byte, 
 		if err != nil {
 			continue
 		}
-		newProvider, err := NewOAIProvider(conf)
+		adapterX, err := NewOAIAdapter(conf)
 		if err != nil {
+			s.Logger.Warn("创建provider失败", zap.String("modelId", modelId), zap.Error(err))
 			continue
 		}
 		req, err = changeBytesModelId(req, conf.ModelId)
-		resp, respHeader, err := newProvider.EmbeddingsByBytes(ctx, req)
+		resp, respHeader, err := adapterX.EmbeddingsByBytes(ctx, req)
 		if err == nil {
-			s.GoLogReq(ctx, conf.ModelId, 1)
+			// s.GoLogReq(ctx, conf.ModelId, 1)
 			return resp, respHeader, nil
 		}
 		// 标记模型不可用
 		s.FailCb(ctx, conf.ModelRecordId)
 	}
-	s.GoLogReq(ctx, modelId, 2)
+	//s.GoLogReq(ctx, modelId, 2)
 	return nil, nil, errors.New("no service available")
 }
 
-func (s *oaiService) CreateSpeech2Archive(ctx context.Context, req *adapterV1.SpeechRequest) (io.ReadCloser, http.Header, error) {
+func (s *oaiService) CreateSpeech2Archive(ctx context.Context, req *adapterApi.SpeechRequest) (io.ReadCloser, http.Header, error) {
 	reqModelId := req.Model
 	for _ = range s.N {
 		conf, err := s.load.NextChannel(ctx, reqModelId)
 		if err != nil {
 			continue
 		}
-		newProvider, err := NewOAIProvider(conf)
+		adapterX, err := NewOAIAdapter(conf)
 		if err != nil {
+			s.Logger.Warn("创建provider失败", zap.String("modelId", reqModelId), zap.Error(err))
 			continue
 		}
 		req.Model = conf.ModelId
-		resp, respHeader, err := newProvider.CreateSpeech(ctx, req)
+		resp, respHeader, err := adapterX.CreateSpeech(ctx, req)
 		if err == nil {
 			s.SuccessCb(ctx, conf.ModelRecordId)
-			s.GoLogReq(ctx, conf.ModelId, 1)
+			// s.GoLogReq(ctx, conf.ModelId, 1)
 			return resp, respHeader, nil
 		}
 		// 标记模型不可用
 		s.FailCb(ctx, conf.ModelRecordId)
 	}
-	s.GoLogReq(ctx, reqModelId, 2)
+	//s.GoLogReq(ctx, reqModelId, 2)
 	return nil, nil, errors.New("no service available")
 }
 
@@ -519,95 +534,99 @@ func (s *oaiService) CreateSpeechByBytes2Archive(ctx context.Context, req []byte
 		if err != nil {
 			continue
 		}
-		newProvider, err := NewOAIProvider(conf)
+		adapterX, err := NewOAIAdapter(conf)
 		if err != nil {
+			s.Logger.Warn("创建provider失败", zap.String("modelId", modelId), zap.Error(err))
 			continue
 		}
 		req, err = changeBytesModelId(req, conf.ModelId)
-		resp, respHeader, err := newProvider.CreateSpeechByBytes(ctx, req)
+		resp, respHeader, err := adapterX.CreateSpeechByBytes(ctx, req)
 		if err == nil {
-			s.GoLogReq(ctx, conf.ModelId, 1)
+			// s.GoLogReq(ctx, conf.ModelId, 1)
 			return resp, respHeader, nil
 		}
 		// 标记模型不可用
 		s.FailCb(ctx, conf.ModelRecordId)
 	}
-	s.GoLogReq(ctx, modelId, 2)
+	//s.GoLogReq(ctx, modelId, 2)
 	return nil, nil, errors.New("no service available")
 }
 
-func (s *oaiService) Transcriptions2Archive(ctx context.Context, req *adapterV1.TranscriptionRequest) (io.ReadCloser, http.Header, error) {
+func (s *oaiService) Transcriptions2Archive(ctx context.Context, req *adapterApi.TranscriptionRequest) (io.ReadCloser, http.Header, error) {
 	reqModelId := req.Model
 	for _ = range s.N {
 		conf, err := s.load.NextChannel(ctx, reqModelId)
 		if err != nil {
 			continue
 		}
-		newProvider, err := NewOAIProvider(conf)
+		adapterX, err := NewOAIAdapter(conf)
 		if err != nil {
+			s.Logger.Warn("创建provider失败", zap.String("modelId", reqModelId), zap.Error(err))
 			continue
 		}
 		req.Model = conf.ModelId
-		resp, respHeader, err := newProvider.Transcriptions(ctx, req)
+		resp, respHeader, err := adapterX.Transcriptions(ctx, req)
 		if err == nil {
 			s.SuccessCb(ctx, conf.ModelRecordId)
-			s.GoLogReq(ctx, conf.ModelId, 1)
+			// s.GoLogReq(ctx, conf.ModelId, 1)
 			return resp, respHeader, nil
 		}
 		// 标记模型不可用
 		s.FailCb(ctx, conf.ModelRecordId)
 	}
-	s.GoLogReq(ctx, reqModelId, 2)
+	//s.GoLogReq(ctx, reqModelId, 2)
 	return nil, nil, errors.New("no service available")
 }
 
-func (s *oaiService) Translations2Archive(ctx context.Context, req *adapterV1.TranslationRequest) (io.ReadCloser, http.Header, error) {
+func (s *oaiService) Translations2Archive(ctx context.Context, req *adapterApi.TranslationRequest) (io.ReadCloser, http.Header, error) {
 	reqModelId := req.Model
 	for _ = range s.N {
 		conf, err := s.load.NextChannel(ctx, reqModelId)
 		if err != nil {
 			continue
 		}
-		newProvider, err := NewOAIProvider(conf)
+		adapterX, err := NewOAIAdapter(conf)
 		if err != nil {
+			s.Logger.Warn("创建provider失败", zap.String("modelId", reqModelId), zap.Error(err))
 			continue
 		}
 		req.Model = conf.ModelId
-		resp, respHeader, err := newProvider.Translations(ctx, req)
+		resp, respHeader, err := adapterX.Translations(ctx, req)
 		if err == nil {
 			s.SuccessCb(ctx, conf.ModelRecordId)
-			s.GoLogReq(ctx, conf.ModelId, 1)
+			// s.GoLogReq(ctx, conf.ModelId, 1)
 			return resp, respHeader, nil
 		}
 		// 标记模型不可用
 		s.FailCb(ctx, conf.ModelRecordId)
 	}
-	s.GoLogReq(ctx, reqModelId, 2)
+	//s.GoLogReq(ctx, reqModelId, 2)
 	return nil, nil, errors.New("no service available")
 }
 
-func (s *oaiService) CreateImage2Archive(ctx context.Context, req *adapterV1.CreateImageRequest) (io.ReadCloser, http.Header, error) {
+func (s *oaiService) CreateImage2Archive(ctx context.Context, req *adapterApi.CreateImageRequest) (io.ReadCloser, http.Header, error) {
 	reqModelId := req.Model
 	for _ = range s.N {
 		conf, err := s.load.NextChannel(ctx, reqModelId)
 		if err != nil {
 			continue
 		}
-		newProvider, err := NewOAIProvider(conf)
+		adapterX, err := NewOAIAdapter(conf)
 		if err != nil {
+			s.Logger.Warn("创建provider失败", zap.String("modelId", reqModelId), zap.Error(err))
 			continue
 		}
 		req.Model = conf.ModelId
-		resp, respHeader, err := newProvider.CreateImage(ctx, req)
+		resp, respHeader, err := adapterX.CreateImage(ctx, req)
 		if err == nil {
 			s.SuccessCb(ctx, conf.ModelRecordId)
-			s.GoLogReq(ctx, conf.ModelId, 1)
+			// s.GoLogReq(ctx, conf.ModelId, 1)
 			return resp, respHeader, nil
 		}
 		// 标记模型不可用
 		s.FailCb(ctx, conf.ModelRecordId)
 	}
-	s.GoLogReq(ctx, reqModelId, 2)
+	//s.GoLogReq(ctx, reqModelId, 2)
 	return nil, nil, errors.New("no service available")
 }
 
@@ -617,73 +636,72 @@ func (s *oaiService) CreateImageByBytes2Archive(ctx context.Context, req []byte,
 		if err != nil {
 			continue
 		}
-		newProvider, err := NewOAIProvider(conf)
+		adapterX, err := NewOAIAdapter(conf)
 		if err != nil {
+			s.Logger.Warn("创建provider失败", zap.String("modelId", modelId), zap.Error(err))
 			continue
 		}
 		req, err = changeBytesModelId(req, conf.ModelId)
-		resp, respHeader, err := newProvider.CreateImageByBytes(ctx, req)
+		resp, respHeader, err := adapterX.CreateImageByBytes(ctx, req)
 		if err == nil {
-			s.GoLogReq(ctx, conf.ModelId, 1)
+			// s.GoLogReq(ctx, conf.ModelId, 1)
 			return resp, respHeader, nil
 		}
 		// 标记模型不可用
 		s.FailCb(ctx, conf.ModelRecordId)
 	}
-	s.GoLogReq(ctx, modelId, 2)
+	//s.GoLogReq(ctx, modelId, 2)
 	return nil, nil, errors.New("no service available")
 }
 
-func (s *oaiService) CreateImageEdit2Archive(ctx context.Context, req *adapterV1.EditImageRequest) (io.ReadCloser, http.Header, error) {
+func (s *oaiService) CreateImageEdit2Archive(ctx context.Context, req *adapterApi.EditImageRequest) (io.ReadCloser, http.Header, error) {
 	reqModelId := req.Model
 	for _ = range s.N {
 		conf, err := s.load.NextChannel(ctx, reqModelId)
 		if err != nil {
 			continue
 		}
-		newProvider, err := NewOAIProvider(conf)
+		adapterX, err := NewOAIAdapter(conf)
 		if err != nil {
+			s.Logger.Warn("创建provider失败", zap.String("modelId", reqModelId), zap.Error(err))
 			continue
 		}
 		req.Model = conf.ModelId
-		resp, respHeader, err := newProvider.CreateImageEdit(ctx, req)
+		resp, respHeader, err := adapterX.CreateImageEdit(ctx, req)
 		if err == nil {
 			s.SuccessCb(ctx, conf.ModelRecordId)
-			s.GoLogReq(ctx, conf.ModelId, 1)
+			// s.GoLogReq(ctx, conf.ModelId, 1)
 			return resp, respHeader, nil
 		}
 		s.FailCb(ctx, conf.ModelRecordId)
 	}
-	s.GoLogReq(ctx, reqModelId, 2)
+	//s.GoLogReq(ctx, reqModelId, 2)
 	return nil, nil, errors.New("no service available")
 }
 
-func (s *oaiService) ImageVariations2Archive(ctx context.Context, req *adapterV1.CreateImageVariationRequest) (io.ReadCloser, http.Header, error) {
+func (s *oaiService) ImageVariations2Archive(ctx context.Context, req *adapterApi.CreateImageVariationRequest) (io.ReadCloser, http.Header, error) {
 	reqModelId := req.Model
 	for _ = range s.N {
 		conf, err := s.load.NextChannel(ctx, reqModelId)
 		if err != nil {
 			continue
 		}
-		newProvider, err := NewOAIProvider(conf)
+		adapterX, err := NewOAIAdapter(conf)
 		if err != nil {
+			s.Logger.Warn("创建provider失败", zap.String("modelId", reqModelId), zap.Error(err))
 			continue
 		}
 		req.Model = conf.ModelId
-		resp, respHeader, err := newProvider.ImageVariations(ctx, req)
+		resp, respHeader, err := adapterX.ImageVariations(ctx, req)
 		if err == nil {
 			s.SuccessCb(ctx, conf.ModelRecordId)
-			s.GoLogReq(ctx, conf.ModelId, 1)
+			// s.GoLogReq(ctx, conf.ModelId, 1)
 			return resp, respHeader, nil
 		}
 		s.FailCb(ctx, conf.ModelRecordId)
 	}
-	s.GoLogReq(ctx, reqModelId, 2)
+	//s.GoLogReq(ctx, reqModelId, 2)
 	return nil, nil, errors.New("no service available")
-}
-
-func changeModelId(req *adapterV1.ChatCompletionRequest, newModelId string) {
-	req.Model = newModelId
 }
 
 func changeBytesModelId(bodyBytes []byte, newModelId string) ([]byte, error) {

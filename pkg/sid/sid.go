@@ -11,7 +11,8 @@ type Sid struct {
 }
 
 func NewSid() *Sid {
-	startTime := "2025-01-01"
+
+	startTime := "2001-01-01"
 	machineID := "12"
 	id64, err := strconv.ParseInt(machineID, 10, 64)
 	if err != nil {

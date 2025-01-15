@@ -27,16 +27,16 @@ type userService struct {
 }
 
 func (s *userService) GetUserInfo(ctx context.Context, userId uint64) (*apiV1.UserInfo, error) {
-	user, err := s.userRepo.FindOne(ctx, userId)
+	user, err := s.userRepo.FindUserById(ctx, userId)
 	if err != nil {
 		return nil, err
 	}
 	return &apiV1.UserInfo{
-		Id:              strconv.FormatUint(user.Id, 10),
-		Username:        user.Username,
-		Email:           user.UserEmail,
-		LinuxDoId:       strconv.FormatUint(user.LinuxDoId, 10),
-		LinuxDoUsername: user.LinuxDoUsername,
+		Id:       strconv.FormatUint(user.Id, 10),
+		Username: user.Username,
+		Email:    *user.Email,
+		//LinuxDoId:       strconv.FormatUint(user.LinuxDoId, 10),
+		//LinuxDoUsername: user.LinuxDoUsername,
 	}, nil
 }
 

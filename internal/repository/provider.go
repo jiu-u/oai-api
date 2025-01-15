@@ -1,9 +1,9 @@
 package repository
 
 //type ProviderRepo interface {
-//	InsertOne(ctx context.Context, provider *model.Provider) error
+//	CreateUser(ctx context.Context, provider *model.Provider) error
 //	DeleteOne(ctx context.Context, id uint64) error
-//	FindOne(ctx context.Context, id uint64) (*model.Provider, error)
+//	FindUserById(ctx context.Context, id uint64) (*model.Provider, error)
 //	FindAll(ctx context.Context) ([]*model.Provider, error)
 //	UpdateOne(ctx context.Context, provider *model.Provider) error
 //	ExistsHashId(ctx context.Context, hashId string) (bool, error)
@@ -17,7 +17,7 @@ package repository
 //	*Repository
 //}
 //
-//func (r *providerRepo) InsertOne(ctx context.Context, provider *model.Provider) error {
+//func (r *providerRepo) CreateUser(ctx context.Context, provider *model.Provider) error {
 //	return r.DB(ctx).Create(provider).Error
 //}
 //
@@ -25,12 +25,12 @@ package repository
 //	return r.DB(ctx).Model(&model.Provider{}).Where("id = ?", id).Delete(&model.Provider{}).Error
 //}
 //
-//func (r *providerRepo) FindOne(ctx context.Context, id uint64) (*model.Provider, error) {
+//func (r *providerRepo) FindUserById(ctx context.Context, id uint64) (*model.Provider, error) {
 //	var provider model.Provider
 //	err := r.DB(ctx).First(&provider, id).Error
 //	if err != nil {
 //		if errors.Is(err, gorm.ErrRecordNotFound) {
-//			return nil, fmt.Errorf("provider with ID %d not found", id)
+//			return nil, fmt.Errorf("provider with Id %d not found", id)
 //		}
 //		return nil, fmt.Errorf("error fetching provider: %w", err)
 //	}
