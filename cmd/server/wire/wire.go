@@ -23,11 +23,13 @@ var repositorySet = wire.NewSet(
 	repository.NewDB,
 	repository.NewRepository,
 	repository.NewTransaction,
-	repository.NewChannelRepository,
-	repository.NewChannelModelRepository,
 	repository.NewUserRepository,
 	repository.NewApiKeyRepository,
 	repository.NewRequestLogRepository,
+	repository.NewChannelRepository,
+	repository.NewChannelModelRepository,
+	repository.NewSystemRepository,
+	repository.NewUserAuthProviderRepository,
 )
 
 var serviceSet = wire.NewSet(
@@ -39,8 +41,12 @@ var serviceSet = wire.NewSet(
 	service.NewApiKeyService,
 	service.NewUserService,
 	service.NewAuthService,
-	oauth2.NewService,
+	service.NewSystemConfigService,
+	service.NewEmailService,
+	service.NewVerificationService,
+	service.NewModelCheckService,
 	oauth2.NewLinuxDoAuthService,
+	oauth2.NewGithubAuthService,
 )
 
 var handlerSet = wire.NewSet(
@@ -50,13 +56,15 @@ var handlerSet = wire.NewSet(
 	handler.NewAuthHandler,
 	handler.NewRequestLogHandler,
 	handler.NewUserHandler,
+	handler.NewSystemConfigHandler,
+	handler.NewVerificationHandler,
+	handler.NewChannelHandler,
 )
 
 var serverSet = wire.NewSet(
 	server.NewHTTPServer,
 	server.NewCheckModelServer,
 	server.NewMigrate,
-	server.NewDataLoad,
 )
 
 // build App
@@ -72,36 +80,17 @@ func newApp(
 	)
 }
 
-func newWireApp(app *app.App, migrateJob *server.Migrate, dataLoadJob *server.DataLoadTask) *WireApp {
+func newWireApp(app *app.App, migrateJob *server.Migrate) *WireApp {
 	return &WireApp{
-		App:         app,
-		MigrateJob:  migrateJob,
-		DataLoadJob: dataLoadJob,
+		App:        app,
+		MigrateJob: migrateJob,
 	}
 }
 
 type WireApp struct {
-	App         *app.App
-	MigrateJob  *server.Migrate
-	DataLoadJob *server.DataLoadTask
+	App        *app.App
+	MigrateJob *server.Migrate
 }
-
-//func NewMigrateWire(cfg *config.Config, logger *log.Logger) (*server.Migrate, func(), error) {
-//	panic(wire.Build(
-//		repositorySet,
-//		server.NewMigrate,
-//	))
-//}
-//
-//func NewDataLoadWire(cfg *config.Config, logger *log.Logger) (*server.DataLoadTask, func(), error) {
-//	panic(wire.Build(
-//		repositorySet,
-//		service.NewService,
-//		service.NewChannelService,
-//		sid.NewSid,
-//		server.NewDataLoad,
-//	))
-//}
 
 func NewWire(cfg *config.Config, logger *log.Logger) (*WireApp, func(), error) {
 	panic(wire.Build(

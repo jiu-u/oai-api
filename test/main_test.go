@@ -2,7 +2,9 @@ package test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"github.com/bytedance/sonic"
 	apiV1 "github.com/jiu-u/oai-api/api/v1"
 	"github.com/jiu-u/oai-api/internal/repository"
 	"github.com/jiu-u/oai-api/internal/service"
@@ -94,4 +96,26 @@ func TestHashId(t *testing.T) {
 	if hashId != compare {
 		t.Error("hashId error")
 	}
+}
+
+func TestOption2Print(t *testing.T) {
+	type Option struct {
+		Key string
+		Val string
+	}
+	jsonBytes := []byte(`{"key":"LINUX_DO_CLIENT_ID","val":"123123123"}`)
+	var opt1 Option
+	err := json.Unmarshal(jsonBytes, &opt1)
+	if err != nil {
+		t.Error(err)
+	}
+	fmt.Println(opt1)
+
+	jsonBytes = []byte(`{"key":"LINUX_DO_AUTH_ENABLE","val":true}`)
+	var opt2 Option
+	err = sonic.Unmarshal(jsonBytes, &opt2)
+	if err != nil {
+		t.Error(err)
+	}
+	fmt.Println(opt2)
 }

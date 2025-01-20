@@ -40,10 +40,6 @@ func NewAuthService(
 	githubAuth *oauth2.GitHubOauthService,
 	oauth2Repo repository.UserAuthProviderRepository,
 ) AuthService {
-	err := systemConfigSvc.InitSystemConfig(context.Background())
-	if err != nil {
-		panic(err)
-	}
 	return &authService{
 		Service:         s,
 		userRepo:        userRepo,

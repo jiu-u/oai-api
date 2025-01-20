@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"github.com/gin-gonic/gin"
 	apiV1 "github.com/jiu-u/oai-api/api/v1"
 	"github.com/jiu-u/oai-api/internal/dto"
@@ -14,10 +13,6 @@ type SystemConfigHandler struct {
 }
 
 func NewSystemConfigHandler(handler *Handler, svc service.SystemConfigService) *SystemConfigHandler {
-	err := svc.InitSystemConfig(context.Background())
-	if err != nil {
-		panic(err)
-	}
 	return &SystemConfigHandler{
 		Handler: handler,
 		svc:     svc,

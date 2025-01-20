@@ -98,6 +98,7 @@ func (s *systemConfigService) SetRegisterConfig(ctx context.Context, cfg *dto.Re
 }
 
 func (s *systemConfigService) GetRegisterConfig(ctx context.Context) (*dto.RegisterConfig, error) {
+	err := s.InitSystemConfig(ctx)
 	resp, err := s.repo.GetRegisterConfig(ctx)
 	return resp, err
 }

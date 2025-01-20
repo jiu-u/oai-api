@@ -13,7 +13,6 @@ import (
 func main() {
 	//time.Sleep(5 * time.Second)
 	var envConf = flag.String("conf", "config/local.yaml", "config path, eg: -conf ./config/local.yml")
-	var load = flag.Bool("load", true, "load data from yaml file,eg: -load true")
 	flag.Parse()
 	conf := config.LoadConfig(*envConf)
 	logger := log.NewLogger(conf)
@@ -31,14 +30,6 @@ func main() {
 		panic(err)
 	}
 	// 读取yaml文件
-	if *load {
-		err = app.DataLoadJob.Start(context.Background())
-		if err != nil {
-			logger.Error("dataload error", zap.Error(err))
-			panic(err)
-		}
-	}
-
 	apiApp := app.App
 	logger.Info(
 		"server start",

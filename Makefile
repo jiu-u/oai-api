@@ -48,3 +48,4 @@ build-docker:
 .PHONY: build
 build:
 	go build -ldflags="-s -w" -trimpath -o ./data/bin/server ./cmd/server/
+

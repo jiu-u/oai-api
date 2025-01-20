@@ -2,7 +2,7 @@ package middleware
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/jiu-u/oai-api/pkg/constant"
+	"github.com/jiu-u/oai-api/constant"
 	"github.com/jiu-u/oai-api/pkg/log"
 	"github.com/lithammer/shortuuid/v4"
 	"go.uber.org/zap"

@@ -2,9 +2,9 @@ package service
 
 import (
 	"context"
+	"github.com/jiu-u/oai-api/constant"
 	"github.com/jiu-u/oai-api/internal/repository"
 	"github.com/jiu-u/oai-api/pkg/cache"
-	"github.com/jiu-u/oai-api/pkg/constant"
 	"github.com/jiu-u/oai-api/pkg/jwt"
 	"github.com/jiu-u/oai-api/pkg/log"
 	"github.com/jiu-u/oai-api/pkg/sid"

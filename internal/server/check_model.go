@@ -38,8 +38,8 @@ func NewCheckModelServer(
 }
 
 func (c *CheckModelServer) Start(ctx context.Context) error {
-	return nil
-	//return c.CheckModelChatStatus(ctx)
+	//return nil
+	return c.CheckModelChatStatus(ctx)
 }
 
 func (c *CheckModelServer) Stop(ctx context.Context) error {

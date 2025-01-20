@@ -42,36 +42,43 @@ func NewWire(cfg *config.Config, logger *log.Logger) (*WireApp, func(), error) {
 	oaiService := service.NewOaiService(serviceService, loadBalanceServiceBeta, requestLogService, channelModelRepository)
 	oaiHandler := handler.NewOAIHandler(oaiService)
 	handlerHandler := handler.NewHandler(logger)
-	linuxDoOauth := oauth2.NewLinuxDoAuthService(cfg)
-	authService := oauth2.NewService(serviceService, userRepository, linuxDoOauth)
-	oAuth2Handler := handler.NewOAuth2Handler(handlerHandler, authService, cfg)
-	serviceAuthService := service.NewAuthService(serviceService, userRepository)
-	authHandler := handler.NewAuthHandler(handlerHandler, jwtJWT, serviceAuthService)
+	systemRepository := repository.NewSystemRepository(repositoryRepository)
+	systemConfigService := service.NewSystemConfigService(serviceService, systemRepository)
+	linuxDoOauthService := oauth2.NewLinuxDoAuthService(systemRepository)
+	gitHubOauthService := oauth2.NewGithubAuthService(systemRepository)
+	userAuthProviderRepository := repository.NewUserAuthProviderRepository(repositoryRepository)
+	authService := service.NewAuthService(serviceService, userRepository, systemConfigService, linuxDoOauthService, gitHubOauthService, userAuthProviderRepository)
+	authHandler := handler.NewAuthHandler(handlerHandler, jwtJWT, authService, systemConfigService)
 	apiKeyService := service.NewApiKeyService(serviceService, userRepository, apiKeyRepository)
 	apiKeyHandler := handler.NewApiKeyHandler(handlerHandler, apiKeyService)
 	userService := service.NewUserService(serviceService, userRepository, apiKeyRepository)
 	userHandler := handler.NewUserHandler(handlerHandler, userService)
 	requestLogHandler := handler.NewRequestLogHandler(handlerHandler, requestLogService)
-	httpServer := server.NewHTTPServer(logger, cfg, jwtJWT, oaiHandler, oAuth2Handler, authHandler, apiKeyService, apiKeyHandler, userHandler, requestLogHandler)
-	checkModelServer := server.NewCheckModelServer(cfg, loadBalanceServiceBeta, channelRepository, channelModelRepository, logger)
+	systemConfigHandler := handler.NewSystemConfigHandler(handlerHandler, systemConfigService)
+	emailService := service.NewEmailService(systemRepository)
+	verificationService := service.NewVerificationService(serviceService, emailService)
+	verificationHandler := handler.NewVerificationHandler(handlerHandler, verificationService)
+	channelService := service.NewChannelService(serviceService, channelRepository, channelModelRepository, loadBalanceServiceBeta)
+	modelCheckService := service.NewModelCheckService(serviceService, channelRepository, channelModelRepository, loadBalanceServiceBeta)
+	channelHandler := handler.NewChannelHandler(handlerHandler, channelService, modelCheckService)
+	httpServer := server.NewHTTPServer(logger, cfg, jwtJWT, oaiHandler, authHandler, apiKeyService, apiKeyHandler, userHandler, requestLogHandler, systemConfigHandler, verificationHandler, channelHandler)
+	checkModelServer := server.NewCheckModelServer(loadBalanceServiceBeta, channelRepository, channelModelRepository, logger, systemConfigService)
 	app := newApp(httpServer, checkModelServer)
 	migrate := server.NewMigrate(db, logger)
-	channelService := service.NewChannelService(serviceService, channelRepository, channelModelRepository)
-	dataLoadTask := server.NewDataLoad(channelService, cfg, logger)
-	wireApp := newWireApp(app, migrate, dataLoadTask)
+	wireApp := newWireApp(app, migrate)
 	return wireApp, func() {
 	}, nil
 }
 
 // wire.go:
 
-var repositorySet = wire.NewSet(repository.NewDB, repository.NewRepository, repository.NewTransaction, repository.NewChannelRepository, repository.NewChannelModelRepository, repository.NewUserRepository, repository.NewApiKeyRepository, repository.NewRequestLogRepository)
+var repositorySet = wire.NewSet(repository.NewDB, repository.NewRepository, repository.NewTransaction, repository.NewUserRepository, repository.NewApiKeyRepository, repository.NewRequestLogRepository, repository.NewChannelRepository, repository.NewChannelModelRepository, repository.NewSystemRepository, repository.NewUserAuthProviderRepository)
 
-var serviceSet = wire.NewSet(service.NewService, service.NewOaiService, service.NewChannelService, service.NewLoadBalanceServiceBeta, service.NewRequestLogService, service.NewApiKeyService, service.NewUserService, service.NewAuthService, oauth2.NewService, oauth2.NewLinuxDoAuthService)
+var serviceSet = wire.NewSet(service.NewService, service.NewOaiService, service.NewChannelService, service.NewLoadBalanceServiceBeta, service.NewRequestLogService, service.NewApiKeyService, service.NewUserService, service.NewAuthService, service.NewSystemConfigService, service.NewEmailService, service.NewVerificationService, service.NewModelCheckService, oauth2.NewLinuxDoAuthService, oauth2.NewGithubAuthService)
 
-var handlerSet = wire.NewSet(handler.NewHandler, handler.NewOAIHandler, handler.NewOAuth2Handler, handler.NewApiKeyHandler, handler.NewAuthHandler, handler.NewRequestLogHandler, handler.NewUserHandler)
+var handlerSet = wire.NewSet(handler.NewHandler, handler.NewOAIHandler, handler.NewApiKeyHandler, handler.NewAuthHandler, handler.NewRequestLogHandler, handler.NewUserHandler, handler.NewSystemConfigHandler, handler.NewVerificationHandler, handler.NewChannelHandler)
 
-var serverSet = wire.NewSet(server.NewHTTPServer, server.NewCheckModelServer, server.NewMigrate, server.NewDataLoad)
+var serverSet = wire.NewSet(server.NewHTTPServer, server.NewCheckModelServer, server.NewMigrate)
 
 // build App
 func newApp(
@@ -82,16 +89,14 @@ func newApp(
 	return app.NewApp(app.WithServer(httpServer, checkServer), app.WithName("demo-server"))
 }
 
-func newWireApp(app2 *app.App, migrateJob *server.Migrate, dataLoadJob *server.DataLoadTask) *WireApp {
+func newWireApp(app2 *app.App, migrateJob *server.Migrate) *WireApp {
 	return &WireApp{
-		App:         app2,
-		MigrateJob:  migrateJob,
-		DataLoadJob: dataLoadJob,
+		App:        app2,
+		MigrateJob: migrateJob,
 	}
 }
 
 type WireApp struct {
-	App         *app.App
-	MigrateJob  *server.Migrate
-	DataLoadJob *server.DataLoadTask
+	App        *app.App
+	MigrateJob *server.Migrate
 }
